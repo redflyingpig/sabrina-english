@@ -562,6 +562,104 @@
       display: none;
     }
 
+    .profile-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 18px;
+      border: 1px solid rgba(110, 231, 183, 0.28);
+      border-radius: var(--radius);
+      background: rgba(110, 231, 183, 0.08);
+    }
+
+    .profile-copy {
+      min-width: 0;
+    }
+
+    .profile-copy span {
+      display: block;
+      color: var(--faint);
+      font-size: 0.75rem;
+      font-weight: 850;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .profile-copy strong {
+      display: block;
+      margin-top: 4px;
+      overflow-wrap: anywhere;
+      font-size: 1.02rem;
+    }
+
+    .sync-state {
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 750;
+    }
+
+    .profile-dialog {
+      width: min(500px, calc(100vw - 28px));
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--text);
+      background: #111827;
+      box-shadow: var(--shadow);
+    }
+
+    .profile-dialog::backdrop {
+      background: rgba(2, 6, 23, 0.82);
+      backdrop-filter: blur(8px);
+    }
+
+    .profile-form {
+      display: grid;
+      gap: 18px;
+      padding: 26px;
+    }
+
+    .profile-form p {
+      color: var(--muted);
+      line-height: 1.58;
+    }
+
+    .profile-field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .profile-field label {
+      font-weight: 850;
+    }
+
+    .profile-field input {
+      width: 100%;
+      min-height: 48px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.08);
+      font: inherit;
+      outline: none;
+    }
+
+    .profile-field input:focus {
+      border-color: var(--sky);
+      box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.14);
+    }
+
+    .profile-note {
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      color: var(--gold);
+      background: rgba(246, 196, 83, 0.09);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
     .toast {
       position: fixed;
       right: 20px;
@@ -602,6 +700,11 @@
       .hero-stats,
       .tool-grid {
         grid-template-columns: 1fr;
+      }
+
+      .profile-bar {
+        align-items: flex-start;
+        flex-direction: column;
       }
 
       .section-head {
@@ -646,6 +749,18 @@
 <body>
   <main class="page">
     <div class="shell">
+      <div class="profile-bar" id="profileBar" hidden>
+        <div class="profile-copy">
+          <span>Private study profile</span>
+          <strong id="profileName"></strong>
+          <div class="sync-state" id="syncState">保存在此设备</div>
+        </div>
+        <div class="tool-actions">
+          <button class="secondary-btn" id="copyProfileLink" type="button">复制私人链接</button>
+          <button class="secondary-btn" id="changeProfile" type="button">切换用户</button>
+        </div>
+      </div>
+
       <header class="hero">
         <div>
           <p class="eyebrow">Daily English</p>
@@ -751,13 +866,41 @@
     </div>
   </main>
 
+  <dialog class="profile-dialog" id="profileDialog">
+    <form class="profile-form" id="profileForm">
+      <div>
+        <p class="eyebrow">Your private study space</p>
+        <h2>创建学习用户名</h2>
+      </div>
+      <p>输入一个名字，我们会生成一个专属私人链接。以后在任何设备打开同一个链接，就能看到相同的学习记录。</p>
+      <div class="profile-field">
+        <label for="profileNameInput">学习用户名</label>
+        <input id="profileNameInput" name="profileName" type="text" maxlength="32" autocomplete="nickname" placeholder="例如：Sabrina" required>
+      </div>
+      <div class="profile-note">这个链接就像钥匙。请收藏它，不要公开分享。</div>
+      <button class="primary-btn" type="submit">创建我的学习空间</button>
+    </form>
+  </dialog>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const STORAGE_KEY = "sabrinaEnglishLearnedHistory";
-    const FAVORITES_KEY = "sabrinaEnglishFavorites";
-    const STREAK_KEY = "sabrinaEnglishStreak";
+    const SUPABASE_URL = "https://ghxriablpgkifodeiwxb.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdoeHJpYWJscGdraWZvZGVpd3hiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3OTY1OTgsImV4cCI6MjA5NzM3MjU5OH0.1qhL18WpzLBPfVDAOESvytHf7Q6IJPRaiUqqxBRQnrE";
+    const LEGACY_STORAGE_KEY = "sabrinaEnglishLearnedHistory";
+    const LEGACY_FAVORITES_KEY = "sabrinaEnglishFavorites";
+    const LEGACY_STREAK_KEY = "sabrinaEnglishStreak";
+    const LEGACY_MIGRATION_KEY = "sabrinaEnglishProfileMigrationComplete";
     const BACKUP_VERSION = 1;
+    const PROFILE_HASH_PREFIX = "profile=";
+    let activeProfile = readProfileFromHash();
+    let STORAGE_KEY = profileStorageKey("history");
+    let FAVORITES_KEY = profileStorageKey("favorites");
+    let STREAK_KEY = profileStorageKey("streak");
+    let PROFILE_UPDATED_KEY = profileStorageKey("updatedAt");
+    let syncTimer = null;
+    let syncInFlight = false;
+    let syncPending = false;
 
     const lessonBank = {
       A: [
@@ -954,6 +1097,14 @@
     const exportData = document.getElementById("exportData");
     const importData = document.getElementById("importData");
     const importFile = document.getElementById("importFile");
+    const profileBar = document.getElementById("profileBar");
+    const profileName = document.getElementById("profileName");
+    const syncState = document.getElementById("syncState");
+    const copyProfileLink = document.getElementById("copyProfileLink");
+    const changeProfile = document.getElementById("changeProfile");
+    const profileDialog = document.getElementById("profileDialog");
+    const profileForm = document.getElementById("profileForm");
+    const profileNameInput = document.getElementById("profileNameInput");
 
     dateText.textContent = new Intl.DateTimeFormat("en-US", {
       weekday: "short",
@@ -965,10 +1116,7 @@
     modeName.textContent = `Mode ${mode}: ${modeLabels[mode]}`;
     lessonSubtitle.textContent = modeSubtitles[mode];
 
-    renderLesson();
-    renderHistory();
-    renderFavorites();
-    renderStreak();
+    initializeApp();
 
     clearHistory.addEventListener("click", () => {
       const history = getHistory();
@@ -982,6 +1130,7 @@
       renderLesson();
       renderHistory();
       renderStreak();
+      scheduleProfileSync();
       showToast("Learned history cleared.");
     });
 
@@ -989,6 +1138,65 @@
     exportData.addEventListener("click", exportBackup);
     importData.addEventListener("click", () => importFile.click());
     importFile.addEventListener("change", importBackup);
+    copyProfileLink.addEventListener("click", copyPrivateLink);
+    changeProfile.addEventListener("click", () => {
+      window.location.hash = "";
+      window.location.reload();
+    });
+    profileForm.addEventListener("submit", createProfile);
+    window.addEventListener("hashchange", () => window.location.reload());
+
+    async function initializeApp() {
+      if (!activeProfile) {
+        renderAll();
+        if (typeof profileDialog.showModal === "function") {
+          profileDialog.showModal();
+        } else {
+          profileDialog.setAttribute("open", "");
+        }
+        profileNameInput.focus();
+        return;
+      }
+
+      profileBar.hidden = false;
+      profileName.textContent = activeProfile.name;
+      migrateLegacyData();
+      renderAll();
+
+      if (!isCloudConfigured()) {
+        syncState.textContent = "云同步尚未连接";
+        return;
+      }
+
+      await loadProfileFromCloud();
+    }
+
+    function renderAll() {
+      renderLesson();
+      renderHistory();
+      renderFavorites();
+      renderStreak();
+    }
+
+    function createProfile(event) {
+      event.preventDefault();
+      const name = profileNameInput.value.trim();
+      if (!name) {
+        return;
+      }
+
+      const secret = generateProfileSecret();
+      window.location.hash = `${PROFILE_HASH_PREFIX}${encodeURIComponent(name)}.${secret}`;
+    }
+
+    async function copyPrivateLink() {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        showToast("私人链接已复制，请收藏保存。");
+      } catch {
+        window.prompt("复制并收藏这个私人链接：", window.location.href);
+      }
+    }
 
     function renderLesson() {
       const history = getHistory();
@@ -1142,6 +1350,7 @@
       renderLesson();
       renderHistory();
       renderStreak();
+      scheduleProfileSync();
       showToast("Saved to learned history.");
     }
 
@@ -1225,6 +1434,7 @@
           count: 0,
           lastLearnedDate: streak.lastLearnedDate
         }));
+        scheduleProfileSync();
       }
       streakText.textContent = `${activeCount} 天 🔥`;
     }
@@ -1264,6 +1474,7 @@
       localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
       renderLesson();
       renderFavorites();
+      scheduleProfileSync();
     }
 
     function renderFavorites() {
@@ -1455,6 +1666,7 @@
         renderFavorites();
         renderStreak();
         reviewContent.innerHTML = `<p class="empty">记录已恢复，可以开始复习了。</p>`;
+        scheduleProfileSync();
         showToast("学习记录已恢复。");
       } catch {
         showToast("无法导入：请选择有效的备份文件。");
@@ -1469,6 +1681,184 @@
         return Array.isArray(parsed) ? parsed : [];
       } catch {
         return [];
+      }
+    }
+
+    function readProfileFromHash() {
+      const hash = window.location.hash.slice(1);
+      if (!hash.startsWith(PROFILE_HASH_PREFIX)) {
+        return null;
+      }
+
+      const value = hash.slice(PROFILE_HASH_PREFIX.length);
+      const separator = value.lastIndexOf(".");
+      if (separator < 1) {
+        return null;
+      }
+
+      try {
+        const name = decodeURIComponent(value.slice(0, separator)).trim();
+        const secret = value.slice(separator + 1);
+        if (!name || !/^[A-Za-z0-9_-]{32,}$/.test(secret)) {
+          return null;
+        }
+        return { name, key: `${name}.${secret}` };
+      } catch {
+        return null;
+      }
+    }
+
+    function profileStorageKey(type) {
+      const identity = activeProfile ? activeProfile.key.split(".").pop() : "guest";
+      return `sabrinaEnglish:${identity}:${type}`;
+    }
+
+    function generateProfileSecret() {
+      const bytes = new Uint8Array(24);
+      crypto.getRandomValues(bytes);
+      return btoa(String.fromCharCode(...bytes))
+        .replaceAll("+", "-")
+        .replaceAll("/", "_")
+        .replaceAll("=", "");
+    }
+
+    function migrateLegacyData() {
+      if (!activeProfile ||
+          localStorage.getItem(STORAGE_KEY) !== null ||
+          localStorage.getItem(LEGACY_MIGRATION_KEY) === "true") {
+        return;
+      }
+
+      const legacyHistory = localStorage.getItem(LEGACY_STORAGE_KEY);
+      const legacyFavorites = localStorage.getItem(LEGACY_FAVORITES_KEY);
+      const legacyStreak = localStorage.getItem(LEGACY_STREAK_KEY);
+      if (legacyHistory) localStorage.setItem(STORAGE_KEY, legacyHistory);
+      if (legacyFavorites) localStorage.setItem(FAVORITES_KEY, legacyFavorites);
+      if (legacyStreak) localStorage.setItem(STREAK_KEY, legacyStreak);
+      if (legacyHistory || legacyFavorites || legacyStreak) {
+        localStorage.setItem(PROFILE_UPDATED_KEY, new Date().toISOString());
+      }
+      localStorage.setItem(LEGACY_MIGRATION_KEY, "true");
+    }
+
+    function isCloudConfigured() {
+      return SUPABASE_URL.startsWith("https://") &&
+        !SUPABASE_URL.includes("YOUR_") &&
+        SUPABASE_ANON_KEY.length > 40 &&
+        !SUPABASE_ANON_KEY.includes("YOUR_");
+    }
+
+    function getProfileState() {
+      return {
+        version: BACKUP_VERSION,
+        updatedAt: localStorage.getItem(PROFILE_UPDATED_KEY) || new Date().toISOString(),
+        history: getHistory(),
+        favorites: getFavorites(),
+        streak: getStreak()
+      };
+    }
+
+    function applyProfileState(state) {
+      if (!state || typeof state !== "object") {
+        return;
+      }
+      if (Array.isArray(state.history)) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.history));
+      }
+      if (Array.isArray(state.favorites)) {
+        localStorage.setItem(FAVORITES_KEY, JSON.stringify(state.favorites));
+      }
+      if (state.streak && typeof state.streak === "object") {
+        localStorage.setItem(STREAK_KEY, JSON.stringify(state.streak));
+      }
+    }
+
+    async function callProfileRpc(functionName, payload) {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${functionName}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Cloud request failed: ${response.status}`);
+      }
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    }
+
+    async function loadProfileFromCloud() {
+      syncState.textContent = "正在同步…";
+      try {
+        const result = await callProfileRpc("load_study_profile", {
+          p_profile_key: activeProfile.key
+        });
+        const cloudState = Array.isArray(result) ? result[0]?.state : result?.state;
+
+        if (cloudState) {
+          const localUpdatedAt = Date.parse(localStorage.getItem(PROFILE_UPDATED_KEY) || "");
+          const cloudUpdatedAt = Date.parse(cloudState.updatedAt || "");
+          if (Number.isFinite(localUpdatedAt) && (!Number.isFinite(cloudUpdatedAt) || localUpdatedAt > cloudUpdatedAt)) {
+            await saveProfileToCloud();
+          } else {
+            applyProfileState(cloudState);
+            if (cloudState.updatedAt) {
+              localStorage.setItem(PROFILE_UPDATED_KEY, cloudState.updatedAt);
+            }
+            renderAll();
+            syncState.textContent = "已从云端同步";
+          }
+        } else {
+          await saveProfileToCloud();
+        }
+      } catch {
+        syncState.textContent = "离线模式 · 稍后自动重试";
+      }
+    }
+
+    function scheduleProfileSync() {
+      if (!activeProfile) {
+        return;
+      }
+      localStorage.setItem(PROFILE_UPDATED_KEY, new Date().toISOString());
+      if (!isCloudConfigured()) {
+        return;
+      }
+      clearTimeout(syncTimer);
+      syncState.textContent = "等待同步…";
+      if (syncInFlight) {
+        syncPending = true;
+        return;
+      }
+      syncTimer = setTimeout(saveProfileToCloud, 500);
+    }
+
+    async function saveProfileToCloud() {
+      if (syncInFlight || !activeProfile || !isCloudConfigured()) {
+        return;
+      }
+
+      syncInFlight = true;
+      syncState.textContent = "正在同步…";
+      try {
+        await callProfileRpc("save_study_profile", {
+          p_profile_key: activeProfile.key,
+          p_display_name: activeProfile.name,
+          p_state: getProfileState()
+        });
+        syncState.textContent = "已同步到云端";
+      } catch {
+        syncState.textContent = "同步失败 · 记录仍保存在本机";
+      } finally {
+        syncInFlight = false;
+        if (syncPending) {
+          syncPending = false;
+          syncTimer = setTimeout(saveProfileToCloud, 100);
+        }
       }
     }
 

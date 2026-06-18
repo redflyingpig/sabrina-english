@@ -751,12 +751,12 @@
     <div class="shell">
       <div class="profile-bar" id="profileBar" hidden>
         <div class="profile-copy">
-          <span>Private study profile</span>
+          <span>学习用户名</span>
           <strong id="profileName"></strong>
           <div class="sync-state" id="syncState">保存在此设备</div>
         </div>
         <div class="tool-actions">
-          <button class="secondary-btn" id="copyProfileLink" type="button">复制私人链接</button>
+          <button class="secondary-btn" id="copyProfileLink" type="button">复制用户链接</button>
           <button class="secondary-btn" id="changeProfile" type="button">切换用户</button>
         </div>
       </div>
@@ -869,16 +869,16 @@
   <dialog class="profile-dialog" id="profileDialog">
     <form class="profile-form" id="profileForm">
       <div>
-        <p class="eyebrow">Your private study space</p>
-        <h2>创建学习用户名</h2>
+        <p class="eyebrow">Your study profile</p>
+        <h2>进入学习档案</h2>
       </div>
-      <p>输入一个名字，我们会生成一个专属私人链接。以后在任何设备打开同一个链接，就能看到相同的学习记录。</p>
+      <p>输入学习用户名即可进入。以后在任何设备输入同一个用户名，都会找回相同的学习记录。</p>
       <div class="profile-field">
         <label for="profileNameInput">学习用户名</label>
         <input id="profileNameInput" name="profileName" type="text" maxlength="32" autocomplete="nickname" placeholder="例如：Sabrina" required>
       </div>
-      <div class="profile-note">这个链接就像钥匙。请收藏它，不要公开分享。</div>
-      <button class="primary-btn" type="submit">创建我的学习空间</button>
+      <div class="profile-note">这里不设密码：知道用户名的人也能打开和修改这份记录。</div>
+      <button class="primary-btn" type="submit">进入学习空间</button>
     </form>
   </dialog>
 
@@ -892,7 +892,7 @@
     const LEGACY_STREAK_KEY = "sabrinaEnglishStreak";
     const LEGACY_MIGRATION_KEY = "sabrinaEnglishProfileMigrationComplete";
     const BACKUP_VERSION = 1;
-    const PROFILE_HASH_PREFIX = "profile=";
+    const USER_HASH_PREFIX = "user=";
     let activeProfile = readProfileFromHash();
     let STORAGE_KEY = profileStorageKey("history");
     let FAVORITES_KEY = profileStorageKey("favorites");
@@ -1138,7 +1138,7 @@
     exportData.addEventListener("click", exportBackup);
     importData.addEventListener("click", () => importFile.click());
     importFile.addEventListener("change", importBackup);
-    copyProfileLink.addEventListener("click", copyPrivateLink);
+    copyProfileLink.addEventListener("click", copyUserLink);
     changeProfile.addEventListener("click", () => {
       window.location.hash = "";
       window.location.reload();
@@ -1181,20 +1181,19 @@
     function createProfile(event) {
       event.preventDefault();
       const name = profileNameInput.value.trim();
-      if (!name) {
+      if (!normalizeUsername(name)) {
         return;
       }
 
-      const secret = generateProfileSecret();
-      window.location.hash = `${PROFILE_HASH_PREFIX}${encodeURIComponent(name)}.${secret}`;
+      window.location.hash = `${USER_HASH_PREFIX}${encodeURIComponent(name)}`;
     }
 
-    async function copyPrivateLink() {
+    async function copyUserLink() {
       try {
         await navigator.clipboard.writeText(window.location.href);
-        showToast("私人链接已复制，请收藏保存。");
+        showToast("用户链接已复制。也可以直接输入同一个用户名。");
       } catch {
-        window.prompt("复制并收藏这个私人链接：", window.location.href);
+        window.prompt("复制这个用户链接：", window.location.href);
       }
     }
 
@@ -1686,40 +1685,42 @@
 
     function readProfileFromHash() {
       const hash = window.location.hash.slice(1);
-      if (!hash.startsWith(PROFILE_HASH_PREFIX)) {
-        return null;
-      }
-
-      const value = hash.slice(PROFILE_HASH_PREFIX.length);
-      const separator = value.lastIndexOf(".");
-      if (separator < 1) {
-        return null;
-      }
-
       try {
-        const name = decodeURIComponent(value.slice(0, separator)).trim();
-        const secret = value.slice(separator + 1);
-        if (!name || !/^[A-Za-z0-9_-]{32,}$/.test(secret)) {
-          return null;
+        if (hash.startsWith(USER_HASH_PREFIX)) {
+          const name = decodeURIComponent(hash.slice(USER_HASH_PREFIX.length)).trim();
+          const username = normalizeUsername(name);
+          return username ? { name, username } : null;
         }
-        return { name, key: `${name}.${secret}` };
+
+        if (hash.startsWith("profile=")) {
+          const legacyValue = hash.slice("profile=".length);
+          const separator = legacyValue.lastIndexOf(".");
+          const name = separator > 0 ? decodeURIComponent(legacyValue.slice(0, separator)).trim() : "";
+          const username = normalizeUsername(name);
+          if (!username) {
+            return null;
+          }
+          window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${USER_HASH_PREFIX}${encodeURIComponent(name)}`);
+          return { name, username };
+        }
+
+        return null;
       } catch {
         return null;
       }
     }
 
-    function profileStorageKey(type) {
-      const identity = activeProfile ? activeProfile.key.split(".").pop() : "guest";
-      return `sabrinaEnglish:${identity}:${type}`;
+    function normalizeUsername(value) {
+      const normalized = value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+      if (!normalized || normalized.length > 32) {
+        return null;
+      }
+      return normalized;
     }
 
-    function generateProfileSecret() {
-      const bytes = new Uint8Array(24);
-      crypto.getRandomValues(bytes);
-      return btoa(String.fromCharCode(...bytes))
-        .replaceAll("+", "-")
-        .replaceAll("/", "_")
-        .replaceAll("=", "");
+    function profileStorageKey(type) {
+      const identity = activeProfile ? encodeURIComponent(activeProfile.username) : "guest";
+      return `sabrinaEnglish:${identity}:${type}`;
     }
 
     function migrateLegacyData() {
@@ -1794,12 +1795,17 @@
     async function loadProfileFromCloud() {
       syncState.textContent = "正在同步…";
       try {
-        const result = await callProfileRpc("load_study_profile", {
-          p_profile_key: activeProfile.key
+        const result = await callProfileRpc("load_study_user", {
+          p_username: activeProfile.username
         });
-        const cloudState = Array.isArray(result) ? result[0]?.state : result?.state;
+        const cloudRecord = Array.isArray(result) ? result[0] : result;
+        const cloudState = cloudRecord?.state;
 
         if (cloudState) {
+          if (cloudRecord.display_name) {
+            activeProfile.name = cloudRecord.display_name;
+            profileName.textContent = cloudRecord.display_name;
+          }
           const localUpdatedAt = Date.parse(localStorage.getItem(PROFILE_UPDATED_KEY) || "");
           const cloudUpdatedAt = Date.parse(cloudState.updatedAt || "");
           if (Number.isFinite(localUpdatedAt) && (!Number.isFinite(cloudUpdatedAt) || localUpdatedAt > cloudUpdatedAt)) {
@@ -1845,8 +1851,8 @@
       syncInFlight = true;
       syncState.textContent = "正在同步…";
       try {
-        await callProfileRpc("save_study_profile", {
-          p_profile_key: activeProfile.key,
+        await callProfileRpc("save_study_user", {
+          p_username: activeProfile.username,
           p_display_name: activeProfile.name,
           p_state: getProfileState()
         });

@@ -207,6 +207,17 @@
       padding: 18px 24px 0;
     }
 
+    .lesson-source {
+      padding: 12px 24px 0;
+      color: var(--faint);
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+
+    .lesson-source a {
+      color: var(--sky);
+    }
+
     .progress-copy {
       display: flex;
       justify-content: space-between;
@@ -726,6 +737,10 @@
         padding: 16px 18px 0;
       }
 
+      .lesson-source {
+        padding: 12px 18px 0;
+      }
+
       .tool-grid,
       .review-stage,
       .favorite-list {
@@ -800,6 +815,12 @@
             <div class="progress-fill" id="progressFill"></div>
           </div>
         </div>
+        <p class="lesson-source" id="lessonSource" hidden>
+          Vocabulary selection is aligned with
+          <a href="https://www.oxfordlearnersdictionaries.com/external/pdf/wordlists/oxford-3000-5000/The_Oxford_3000_by_CEFR_level.pdf" target="_blank" rel="noopener">Oxford 3000 CEFR levels</a>,
+          <a href="https://www.cambridgeenglish.org/images/506886-a2-key-2020-vocabulary-list.pdf" target="_blank" rel="noopener">Cambridge A2 Key</a>,
+          and <a href="https://learnenglish.britishcouncil.org/free-resources/vocabulary/a1-a2" target="_blank" rel="noopener">British Council A1–A2 topics</a>.
+        </p>
         <div class="lesson-grid" id="lessonGrid"></div>
       </section>
 
@@ -901,6 +922,7 @@
     let syncTimer = null;
     let syncInFlight = false;
     let syncPending = false;
+    let profileHydrated = false;
 
     const lessonBank = {
       A: [
@@ -952,6 +974,97 @@
           { word: "clean", phonetic: "/kliːn/", translation: "干净的；打扫", example: "Please keep your desk clean." },
           { word: "answer", phonetic: "/ˈænsər/", translation: "回答；答案", example: "Do you know the answer to this question?" },
           { word: "almost", phonetic: "/ˈɔːlmoʊst/", translation: "几乎", example: "We are almost ready to leave." }
+        ],
+        [
+          { word: "borrow", phonetic: "/ˈbɑːroʊ/", translation: "借入", example: "Can I borrow your pen for a minute?" },
+          { word: "return", phonetic: "/rɪˈtɜːrn/", translation: "归还；返回", example: "Please return the book next Friday." },
+          { word: "message", phonetic: "/ˈmesɪdʒ/", translation: "信息；留言", example: "I left a message for your teacher." },
+          { word: "enough", phonetic: "/ɪˈnʌf/", translation: "足够的", example: "We have enough food for everyone." },
+          { word: "corner", phonetic: "/ˈkɔːrnər/", translation: "角落；街角", example: "The café is on the next corner." }
+        ],
+        [
+          { word: "invite", phonetic: "/ɪnˈvaɪt/", translation: "邀请", example: "I want to invite Mei to dinner." },
+          { word: "agree", phonetic: "/əˈɡriː/", translation: "同意", example: "We agree that this is the best plan." },
+          { word: "different", phonetic: "/ˈdɪfrənt/", translation: "不同的", example: "The two bags are different colours." },
+          { word: "possible", phonetic: "/ˈpɑːsəbl/", translation: "可能的", example: "Is it possible to arrive before six?" },
+          { word: "surprise", phonetic: "/sərˈpraɪz/", translation: "惊喜；使惊讶", example: "The birthday cake was a lovely surprise." }
+        ],
+        [
+          { word: "receipt", phonetic: "/rɪˈsiːt/", translation: "收据", example: "Keep the receipt in case you need it." },
+          { word: "cash", phonetic: "/kæʃ/", translation: "现金", example: "I paid for the fruit in cash." },
+          { word: "change", phonetic: "/tʃeɪndʒ/", translation: "零钱；改变", example: "Do you have change for ten dollars?" },
+          { word: "cheap", phonetic: "/tʃiːp/", translation: "便宜的", example: "These shoes were cheap but comfortable." },
+          { word: "expensive", phonetic: "/ɪkˈspensɪv/", translation: "昂贵的", example: "That restaurant is too expensive for us." }
+        ],
+        [
+          { word: "appointment", phonetic: "/əˈpɔɪntmənt/", translation: "预约；约会", example: "I have a dentist appointment at three." },
+          { word: "medicine", phonetic: "/ˈmedɪsn/", translation: "药", example: "Take this medicine after breakfast." },
+          { word: "pain", phonetic: "/peɪn/", translation: "疼痛", example: "She has a pain in her left shoulder." },
+          { word: "rest", phonetic: "/rest/", translation: "休息", example: "You should rest if you feel tired." },
+          { word: "improve", phonetic: "/ɪmˈpruːv/", translation: "改善；提高", example: "Reading every day will improve your English." }
+        ],
+        [
+          { word: "platform", phonetic: "/ˈplætfɔːrm/", translation: "站台；平台", example: "The train leaves from platform four." },
+          { word: "ticket", phonetic: "/ˈtɪkɪt/", translation: "票", example: "I bought a return ticket to Oxford." },
+          { word: "luggage", phonetic: "/ˈlʌɡɪdʒ/", translation: "行李", example: "Her luggage is beside the door." },
+          { word: "direction", phonetic: "/dəˈrekʃn/", translation: "方向；指路", example: "Could you give me directions to the station?" },
+          { word: "abroad", phonetic: "/əˈbrɔːd/", translation: "在国外", example: "He wants to study abroad next year." }
+        ],
+        [
+          { word: "neighbour", phonetic: "/ˈneɪbər/", translation: "邻居", example: "Our new neighbour has a friendly dog." },
+          { word: "entrance", phonetic: "/ˈentrəns/", translation: "入口", example: "Meet me near the main entrance." },
+          { word: "floor", phonetic: "/flɔːr/", translation: "地板；楼层", example: "Her office is on the second floor." },
+          { word: "lift", phonetic: "/lɪft/", translation: "电梯；抬起", example: "Let's take the lift to the fifth floor." },
+          { word: "balcony", phonetic: "/ˈbælkəni/", translation: "阳台", example: "We grow small plants on the balcony." }
+        ],
+        [
+          { word: "weather", phonetic: "/ˈweðər/", translation: "天气", example: "The weather is warm and sunny today." },
+          { word: "cloudy", phonetic: "/ˈklaʊdi/", translation: "多云的", example: "It will be cloudy in the afternoon." },
+          { word: "storm", phonetic: "/stɔːrm/", translation: "暴风雨", example: "The storm started during the night." },
+          { word: "temperature", phonetic: "/ˈtemprətʃər/", translation: "温度", example: "The temperature will drop this evening." },
+          { word: "season", phonetic: "/ˈsiːzn/", translation: "季节", example: "Spring is my favourite season." }
+        ],
+        [
+          { word: "hobby", phonetic: "/ˈhɑːbi/", translation: "爱好", example: "Photography is an enjoyable hobby." },
+          { word: "collect", phonetic: "/kəˈlekt/", translation: "收集", example: "She likes to collect postcards." },
+          { word: "concert", phonetic: "/ˈkɑːnsərt/", translation: "音乐会", example: "We are going to a concert on Saturday." },
+          { word: "photograph", phonetic: "/ˈfoʊtəɡræf/", translation: "照片；拍照", example: "May I take a photograph of the garden?" },
+          { word: "enjoy", phonetic: "/ɪnˈdʒɔɪ/", translation: "享受；喜欢", example: "I enjoy listening to music after work." }
+        ],
+        [
+          { word: "project", phonetic: "/ˈprɑːdʒekt/", translation: "项目；课题", example: "Our class project is about local history." },
+          { word: "explain", phonetic: "/ɪkˈspleɪn/", translation: "解释", example: "Can you explain this word to me?" },
+          { word: "example", phonetic: "/ɪɡˈzæmpl/", translation: "例子", example: "The teacher gave us a simple example." },
+          { word: "mistake", phonetic: "/mɪˈsteɪk/", translation: "错误", example: "It is okay to make a mistake while learning." },
+          { word: "correct", phonetic: "/kəˈrekt/", translation: "正确的；改正", example: "Please choose the correct answer." }
+        ],
+        [
+          { word: "meeting", phonetic: "/ˈmiːtɪŋ/", translation: "会议；会面", example: "The meeting begins at half past nine." },
+          { word: "office", phonetic: "/ˈɔːfɪs/", translation: "办公室", example: "My office is close to the library." },
+          { word: "busy", phonetic: "/ˈbɪzi/", translation: "忙碌的", example: "Monday morning is usually very busy." },
+          { word: "early", phonetic: "/ˈɜːrli/", translation: "早的；提前", example: "I arrived early for the interview." },
+          { word: "report", phonetic: "/rɪˈpɔːrt/", translation: "报告", example: "She finished the report before lunch." }
+        ],
+        [
+          { word: "menu", phonetic: "/ˈmenjuː/", translation: "菜单", example: "Could we see the menu, please?" },
+          { word: "order", phonetic: "/ˈɔːrdər/", translation: "点餐；订购", example: "I would like to order the vegetable soup." },
+          { word: "delicious", phonetic: "/dɪˈlɪʃəs/", translation: "美味的", example: "The noodles were simple but delicious." },
+          { word: "dessert", phonetic: "/dɪˈzɜːrt/", translation: "甜点", example: "We shared a small dessert after dinner." },
+          { word: "bill", phonetic: "/bɪl/", translation: "账单", example: "Could we have the bill, please?" }
+        ],
+        [
+          { word: "repair", phonetic: "/rɪˈper/", translation: "修理", example: "They will repair the washing machine tomorrow." },
+          { word: "broken", phonetic: "/ˈbroʊkən/", translation: "坏掉的", example: "The kitchen light is broken." },
+          { word: "tool", phonetic: "/tuːl/", translation: "工具", example: "This tool is useful for opening the box." },
+          { word: "replace", phonetic: "/rɪˈpleɪs/", translation: "替换", example: "We need to replace the old battery." },
+          { word: "problem", phonetic: "/ˈprɑːbləm/", translation: "问题", example: "Please call me if there is a problem." }
+        ],
+        [
+          { word: "environment", phonetic: "/ɪnˈvaɪrənmənt/", translation: "环境", example: "Walking is better for the environment." },
+          { word: "recycle", phonetic: "/ˌriːˈsaɪkl/", translation: "回收利用", example: "We recycle paper, glass and plastic." },
+          { word: "waste", phonetic: "/weɪst/", translation: "浪费；废物", example: "Try not to waste water at home." },
+          { word: "protect", phonetic: "/prəˈtekt/", translation: "保护", example: "Trees help protect the soil and air." },
+          { word: "nature", phonetic: "/ˈneɪtʃər/", translation: "大自然", example: "They enjoy spending time in nature." }
         ]
       ],
       B: [
@@ -1072,9 +1185,9 @@
 
     const today = new Date();
     const todayKey = formatDateKey(today);
-    const dayOfYear = getDayOfYear(today);
     const mode = pickDailyMode(todayKey);
-    const lessonSet = getLessonSet(mode, dayOfYear);
+    const lessonSetIndex = getModeOccurrenceIndex(mode, today);
+    const lessonSet = getLessonSet(mode, lessonSetIndex);
 
     const lessonGrid = document.getElementById("lessonGrid");
     const dateText = document.getElementById("dateText");
@@ -1090,6 +1203,7 @@
     const progressStatus = document.getElementById("progressStatus");
     const progressFill = document.getElementById("progressFill");
     const progressTrack = document.querySelector(".progress-track");
+    const lessonSource = document.getElementById("lessonSource");
     const startReview = document.getElementById("startReview");
     const reviewContent = document.getElementById("reviewContent");
     const favoritesContent = document.getElementById("favoritesContent");
@@ -1115,6 +1229,7 @@
     modeBadge.textContent = mode;
     modeName.textContent = `Mode ${mode}: ${modeLabels[mode]}`;
     lessonSubtitle.textContent = modeSubtitles[mode];
+    lessonSource.hidden = mode !== "A";
 
     initializeApp();
 
@@ -1777,6 +1892,7 @@
     async function callProfileRpc(functionName, payload) {
       const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${functionName}`, {
         method: "POST",
+        keepalive: true,
         headers: {
           "Content-Type": "application/json",
           apikey: SUPABASE_ANON_KEY,
@@ -1806,24 +1922,66 @@
             activeProfile.name = cloudRecord.display_name;
             profileName.textContent = cloudRecord.display_name;
           }
-          const localUpdatedAt = Date.parse(localStorage.getItem(PROFILE_UPDATED_KEY) || "");
-          const cloudUpdatedAt = Date.parse(cloudState.updatedAt || "");
-          if (Number.isFinite(localUpdatedAt) && (!Number.isFinite(cloudUpdatedAt) || localUpdatedAt > cloudUpdatedAt)) {
+          const localState = hasLocalProfileData() ? getProfileState() : null;
+          const mergedState = localState ? mergeProfileStates(cloudState, localState) : cloudState;
+          applyProfileState(mergedState);
+          localStorage.setItem(PROFILE_UPDATED_KEY, mergedState.updatedAt || cloudState.updatedAt || new Date().toISOString());
+          renderAll();
+          profileHydrated = true;
+
+          if (localState && JSON.stringify(mergedState) !== JSON.stringify(cloudState)) {
             await saveProfileToCloud();
           } else {
-            applyProfileState(cloudState);
-            if (cloudState.updatedAt) {
-              localStorage.setItem(PROFILE_UPDATED_KEY, cloudState.updatedAt);
-            }
-            renderAll();
             syncState.textContent = "已从云端同步";
           }
         } else {
+          profileHydrated = true;
           await saveProfileToCloud();
         }
       } catch {
         syncState.textContent = "离线模式 · 稍后自动重试";
+        profileHydrated = true;
       }
+
+      if (syncPending && isCloudConfigured()) {
+        syncPending = false;
+        await saveProfileToCloud();
+      }
+    }
+
+    function hasLocalProfileData() {
+      return localStorage.getItem(STORAGE_KEY) !== null ||
+        localStorage.getItem(FAVORITES_KEY) !== null ||
+        localStorage.getItem(STREAK_KEY) !== null;
+    }
+
+    function mergeProfileStates(cloudState, localState) {
+      const historyByKey = new Map();
+      [...(cloudState.history || []), ...(localState.history || [])].forEach((entry) => {
+        if (entry?.key) historyByKey.set(entry.key, entry);
+      });
+
+      const favoritesByKey = new Map();
+      [...(cloudState.favorites || []), ...(localState.favorites || [])].forEach((entry) => {
+        const key = entry?.favoriteKey || `${entry?.mode || ""}:${entry?.title || ""}`;
+        if (key !== ":") favoritesByKey.set(key, entry);
+      });
+
+      const cloudStreak = cloudState.streak || { count: 0, lastLearnedDate: "" };
+      const localStreak = localState.streak || { count: 0, lastLearnedDate: "" };
+      const streak = localStreak.lastLearnedDate > cloudStreak.lastLearnedDate
+        ? localStreak
+        : cloudStreak.lastLearnedDate > localStreak.lastLearnedDate
+          ? cloudStreak
+          : { ...cloudStreak, count: Math.max(cloudStreak.count || 0, localStreak.count || 0) };
+
+      return {
+        version: Math.max(cloudState.version || 1, localState.version || 1),
+        updatedAt: [cloudState.updatedAt, localState.updatedAt].filter(Boolean).sort().pop() || new Date().toISOString(),
+        history: [...historyByKey.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
+        favorites: [...favoritesByKey.values()],
+        streak
+      };
     }
 
     function scheduleProfileSync() {
@@ -1840,11 +1998,16 @@
         syncPending = true;
         return;
       }
-      syncTimer = setTimeout(saveProfileToCloud, 500);
+      syncTimer = setTimeout(saveProfileToCloud, 100);
     }
 
     async function saveProfileToCloud() {
       if (syncInFlight || !activeProfile || !isCloudConfigured()) {
+        return;
+      }
+
+      if (!profileHydrated) {
+        syncPending = true;
         return;
       }
 
@@ -1894,15 +2057,23 @@
       return modes[Math.abs(hashString(seed)) % modes.length];
     }
 
-    function getLessonSet(currentMode, dayNumber) {
+    function getLessonSet(currentMode, occurrenceIndex) {
       const sets = lessonBank[currentMode];
-      return sets[(dayNumber - 1) % sets.length];
+      return sets[occurrenceIndex % sets.length];
     }
 
-    function getDayOfYear(date) {
-      const start = new Date(date.getFullYear(), 0, 0);
-      const diff = date - start + (start.getTimezoneOffset() - date.getTimezoneOffset()) * 60000;
-      return Math.floor(diff / 86400000);
+    function getModeOccurrenceIndex(currentMode, date) {
+      const start = new Date(2026, 0, 1);
+      const end = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      let occurrence = -1;
+
+      for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+        if (pickDailyMode(formatDateKey(cursor)) === currentMode) {
+          occurrence += 1;
+        }
+      }
+
+      return Math.max(0, occurrence);
     }
 
     function formatDateKey(date) {

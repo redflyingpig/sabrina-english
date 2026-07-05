@@ -6,21 +6,23 @@
   <title>Sabrina English Daily Lesson</title>
   <style>
     :root {
-      color-scheme: dark;
-      --bg: #111827;
-      --bg-soft: #172033;
-      --panel: rgba(255, 255, 255, 0.08);
-      --panel-strong: rgba(255, 255, 255, 0.13);
-      --text: #f8fafc;
-      --muted: #b9c3d1;
-      --faint: #7c8798;
-      --line: rgba(255, 255, 255, 0.14);
-      --rose: #fb7185;
-      --gold: #f6c453;
-      --mint: #6ee7b7;
-      --sky: #7dd3fc;
-      --shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
-      --radius: 8px;
+      color-scheme: light;
+      --bg: #fff8ed;
+      --bg-soft: #fff1df;
+      --panel: rgba(255, 255, 255, 0.72);
+      --panel-strong: rgba(255, 251, 245, 0.94);
+      --text: #342318;
+      --muted: #7d6353;
+      --faint: #a78f80;
+      --line: rgba(139, 92, 66, 0.16);
+      --rose: #ec7f75;
+      --gold: #d9902f;
+      --mint: #68b991;
+      --sky: #63a6c7;
+      --cream: #fffaf2;
+      --shadow: 0 22px 54px rgba(125, 80, 40, 0.14);
+      --soft-shadow: 0 12px 30px rgba(125, 80, 40, 0.08);
+      --radius: 24px;
     }
 
     * {
@@ -33,9 +35,9 @@
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at 10% 0%, rgba(251, 113, 133, 0.22), transparent 34rem),
-        radial-gradient(circle at 92% 14%, rgba(125, 211, 252, 0.20), transparent 32rem),
-        linear-gradient(145deg, #0f172a 0%, #111827 48%, #1f2937 100%);
+        radial-gradient(circle at 12% 0%, rgba(255, 196, 145, 0.52), transparent 28rem),
+        radial-gradient(circle at 92% 8%, rgba(255, 229, 183, 0.64), transparent 26rem),
+        linear-gradient(180deg, #fff8ed 0%, #fffaf5 44%, #f8efe4 100%);
     }
 
     button {
@@ -43,14 +45,14 @@
     }
 
     .page {
-      width: min(1120px, 100%);
+      width: min(1040px, 100%);
       margin: 0 auto;
-      padding: 30px 20px 44px;
+      padding: 30px 20px 56px;
     }
 
     .shell {
       display: grid;
-      gap: 22px;
+      gap: 18px;
     }
 
     .hero {
@@ -58,17 +60,12 @@
       grid-template-columns: 1fr auto;
       gap: 18px;
       align-items: end;
-      padding: 28px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: rgba(15, 23, 42, 0.58);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
+      padding: 18px 4px 6px;
     }
 
     .eyebrow {
       margin: 0 0 8px;
-      color: var(--gold);
+      color: var(--rose);
       font-size: 0.78rem;
       font-weight: 800;
       letter-spacing: 0.08em;
@@ -83,25 +80,26 @@
     }
 
     h1 {
-      font-size: clamp(2.1rem, 6vw, 4.35rem);
-      line-height: 0.98;
-      letter-spacing: 0;
+      font-size: clamp(2rem, 5.2vw, 4rem);
+      line-height: 1;
+      letter-spacing: -0.04em;
     }
 
     .subtitle {
       max-width: 650px;
-      margin-top: 14px;
+      margin-top: 12px;
       color: var(--muted);
       font-size: clamp(1rem, 2.4vw, 1.18rem);
-      line-height: 1.65;
+      line-height: 1.55;
     }
 
     .date-card {
-      min-width: 190px;
-      padding: 18px;
+      min-width: 176px;
+      padding: 15px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.62);
+      box-shadow: var(--soft-shadow);
     }
 
     .date-card span {
@@ -116,22 +114,22 @@
     .date-card strong {
       display: block;
       margin-top: 8px;
-      font-size: 1.18rem;
+      font-size: 1.05rem;
     }
 
     .hero-stats {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 14px;
+      gap: 8px;
+      margin-top: 10px;
     }
 
     .stat-card {
       min-width: 0;
-      padding: 14px;
+      padding: 10px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
+      border-radius: 16px;
+      background: rgba(255, 248, 238, 0.74);
     }
 
     .stat-card span {
@@ -147,16 +145,52 @@
       display: block;
       margin-top: 5px;
       color: var(--gold);
-      font-size: 1.22rem;
+      font-size: 1rem;
     }
 
     .panel {
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: rgba(15, 23, 42, 0.66);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
+      background: var(--panel);
+      box-shadow: var(--soft-shadow);
       overflow: hidden;
+    }
+
+    .shell > section.panel:first-of-type {
+      border-color: rgba(217, 144, 47, 0.28);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 249, 239, 0.94)),
+        var(--cream);
+      box-shadow: var(--shadow);
+    }
+
+    .shell > section.panel:not(:first-of-type) {
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.46);
+      box-shadow: none;
+    }
+
+    .shell > section.panel:not(:first-of-type) .empty {
+      padding: 14px 18px 18px;
+      font-size: 0.95rem;
+    }
+
+    .shell > section.panel:not(:first-of-type) .section-head {
+      padding: 15px 18px;
+      background: transparent;
+    }
+
+    .shell > section.panel:not(:first-of-type) h2 {
+      font-size: 1.12rem;
+      color: var(--muted);
+    }
+
+    .shell > section.panel:not(:first-of-type) .badge {
+      min-width: 32px;
+      height: 32px;
+      padding: 0 9px;
+      color: var(--muted);
+      background: rgba(139, 92, 66, 0.08);
     }
 
     .section-head {
@@ -164,9 +198,9 @@
       gap: 14px;
       align-items: center;
       justify-content: space-between;
-      padding: 22px 24px;
+      padding: 24px 28px 18px;
       border-bottom: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(255, 247, 234, 0.68);
     }
 
     .section-title {
@@ -182,9 +216,9 @@
       min-width: 40px;
       height: 40px;
       padding: 0 12px;
-      border-radius: var(--radius);
-      color: #101827;
-      background: var(--mint);
+      border-radius: 16px;
+      color: #fffaf2;
+      background: linear-gradient(135deg, var(--gold), var(--rose));
       font-weight: 900;
     }
 
@@ -204,11 +238,11 @@
     .progress-wrap {
       display: grid;
       gap: 9px;
-      padding: 18px 24px 0;
+      padding: 12px 28px 0;
     }
 
     .lesson-source {
-      padding: 12px 24px 0;
+      padding: 10px 28px 0;
       color: var(--faint);
       font-size: 0.78rem;
       line-height: 1.5;
@@ -228,29 +262,29 @@
     }
 
     .progress-copy strong {
-      color: var(--mint);
+      color: var(--gold);
     }
 
     .progress-track {
-      height: 10px;
+      height: 9px;
       overflow: hidden;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.09);
+      background: rgba(139, 92, 66, 0.10);
     }
 
     .progress-fill {
       width: 0;
       height: 100%;
       border-radius: inherit;
-      background: linear-gradient(90deg, var(--mint), var(--sky));
+      background: linear-gradient(90deg, var(--gold), var(--rose));
       transition: width 260ms ease;
     }
 
     .lesson-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-      padding: 20px;
+      gap: 18px;
+      padding: 22px 28px 28px;
     }
 
     .lesson-grid.single {
@@ -265,20 +299,22 @@
       min-width: 0;
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: linear-gradient(180deg, var(--panel-strong), rgba(255, 255, 255, 0.06));
+      background: var(--panel-strong);
     }
 
     .lesson-card {
-      padding: 20px;
+      padding: 24px;
+      border-color: rgba(217, 144, 47, 0.22);
+      box-shadow: 0 14px 32px rgba(125, 80, 40, 0.10);
     }
 
     .lesson-card::before {
       content: "";
       position: absolute;
       inset: 0 auto 0 0;
-      width: 4px;
+      width: 5px;
       border-radius: var(--radius) 0 0 var(--radius);
-      background: linear-gradient(180deg, var(--rose), var(--sky));
+      background: linear-gradient(180deg, var(--gold), var(--rose));
     }
 
     .item-top {
@@ -295,10 +331,10 @@
 
     .item-main {
       overflow-wrap: anywhere;
-      font-size: clamp(1.28rem, 4vw, 1.85rem);
+      font-size: clamp(1.5rem, 4.5vw, 2.15rem);
       font-weight: 900;
       line-height: 1.1;
-      letter-spacing: 0;
+      letter-spacing: -0.025em;
     }
 
     .phonetic {
@@ -311,7 +347,7 @@
     .translation,
     .usage {
       color: var(--gold);
-      font-size: 1.03rem;
+      font-size: 1.08rem;
       font-weight: 800;
       line-height: 1.4;
     }
@@ -327,8 +363,8 @@
     .example,
     .example-list li {
       color: var(--muted);
-      font-size: 1rem;
-      line-height: 1.58;
+      font-size: 1.04rem;
+      line-height: 1.6;
     }
 
     .actions {
@@ -348,10 +384,10 @@
       align-items: center;
       justify-content: center;
       min-height: 42px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      border-radius: 999px;
       color: var(--text);
-      background: rgba(255, 255, 255, 0.09);
+      background: rgba(255, 255, 255, 0.58);
       cursor: pointer;
       transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
     }
@@ -371,26 +407,26 @@
     }
 
     .learn-btn {
-      color: #082f49;
-      border-color: rgba(125, 211, 252, 0.72);
-      background: var(--sky);
+      color: #fffaf2;
+      border-color: rgba(217, 144, 47, 0.72);
+      background: linear-gradient(135deg, var(--gold), var(--rose));
     }
 
     .clear-btn {
-      color: #fff1f2;
-      border-color: rgba(251, 113, 133, 0.52);
-      background: rgba(251, 113, 133, 0.16);
+      color: var(--rose);
+      border-color: rgba(236, 127, 117, 0.26);
+      background: rgba(236, 127, 117, 0.08);
     }
 
     .primary-btn {
-      color: #082f49;
-      border-color: rgba(110, 231, 183, 0.72);
-      background: var(--mint);
+      color: #fffaf2;
+      border-color: rgba(217, 144, 47, 0.72);
+      background: linear-gradient(135deg, var(--gold), var(--rose));
     }
 
     .secondary-btn {
       color: var(--text);
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.44);
     }
 
     .icon-btn:hover,
@@ -399,13 +435,13 @@
     .secondary-btn:hover,
     .primary-btn:hover {
       transform: translateY(-1px);
-      border-color: rgba(255, 255, 255, 0.42);
-      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(217, 144, 47, 0.42);
+      background: rgba(255, 255, 255, 0.84);
     }
 
     .learn-btn:hover {
-      color: #082f49;
-      background: #bae6fd;
+      color: #fffaf2;
+      background: linear-gradient(135deg, #e9a33f, #ef8f84);
     }
 
     .clear-btn:hover {
@@ -413,14 +449,14 @@
     }
 
     .primary-btn:hover {
-      color: #082f49;
-      background: #a7f3d0;
+      color: #fffaf2;
+      background: linear-gradient(135deg, #e9a33f, #ef8f84);
     }
 
     .learn-btn:disabled {
-      color: #0f5132;
-      border-color: rgba(110, 231, 183, 0.42);
-      background: rgba(110, 231, 183, 0.35);
+      color: #6f8c61;
+      border-color: rgba(104, 185, 145, 0.28);
+      background: rgba(104, 185, 145, 0.14);
       cursor: default;
       transform: none;
     }
@@ -434,7 +470,7 @@
     .history-list {
       display: grid;
       gap: 12px;
-      padding: 20px;
+      padding: 14px 18px 18px;
     }
 
     .history-card {
@@ -445,7 +481,7 @@
     }
 
     .history-date {
-      color: var(--mint);
+      color: var(--gold);
       font-size: 0.95rem;
       font-weight: 900;
       line-height: 1.35;
@@ -476,25 +512,25 @@
     }
 
     .favorite-btn[aria-pressed="true"] {
-      border-color: rgba(246, 196, 83, 0.62);
-      background: rgba(246, 196, 83, 0.18);
+      border-color: rgba(217, 144, 47, 0.62);
+      background: rgba(217, 144, 47, 0.13);
     }
 
     .tool-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px;
-      padding: 20px;
+      padding: 14px 18px 18px;
     }
 
     .tool-card {
       display: grid;
       gap: 12px;
       align-content: start;
-      padding: 18px;
+      padding: 16px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.48);
     }
 
     .tool-card p {
@@ -510,17 +546,17 @@
     }
 
     .review-stage {
-      padding: 20px;
+      padding: 14px 18px 18px;
     }
 
     .review-card {
       display: grid;
       gap: 16px;
-      min-height: 260px;
-      padding: 24px;
-      border: 1px solid rgba(125, 211, 252, 0.32);
+      min-height: 220px;
+      padding: 20px;
+      border: 1px solid rgba(217, 144, 47, 0.22);
       border-radius: var(--radius);
-      background: linear-gradient(145deg, rgba(125, 211, 252, 0.12), rgba(251, 113, 133, 0.08));
+      background: rgba(255, 250, 242, 0.72);
     }
 
     .review-meta {
@@ -548,7 +584,7 @@
     .favorite-list {
       display: grid;
       gap: 12px;
-      padding: 20px;
+      padding: 14px 18px 18px;
     }
 
     .favorite-row {
@@ -558,8 +594,8 @@
       align-items: center;
       padding: 15px 16px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.46);
     }
 
     .favorite-row span {
@@ -574,14 +610,15 @@
     }
 
     .profile-bar {
+      order: 10;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 14px;
-      padding: 14px 18px;
-      border: 1px solid rgba(110, 231, 183, 0.28);
-      border-radius: var(--radius);
-      background: rgba(110, 231, 183, 0.08);
+      padding: 12px 16px;
+      border: 1px dashed rgba(139, 92, 66, 0.20);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.38);
     }
 
     .profile-copy {
@@ -606,7 +643,7 @@
 
     .sync-state {
       color: var(--muted);
-      font-size: 0.86rem;
+      font-size: 0.8rem;
       font-weight: 750;
     }
 
@@ -616,12 +653,12 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       color: var(--text);
-      background: #111827;
+      background: #fffaf2;
       box-shadow: var(--shadow);
     }
 
     .profile-dialog::backdrop {
-      background: rgba(2, 6, 23, 0.82);
+      background: rgba(52, 35, 24, 0.38);
       backdrop-filter: blur(8px);
     }
 
@@ -652,21 +689,21 @@
       border: 1px solid var(--line);
       border-radius: var(--radius);
       color: var(--text);
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.74);
       font: inherit;
       outline: none;
     }
 
     .profile-field input:focus {
-      border-color: var(--sky);
-      box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.14);
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(217, 144, 47, 0.14);
     }
 
     .profile-note {
       padding: 12px 14px;
       border-radius: var(--radius);
       color: var(--gold);
-      background: rgba(246, 196, 83, 0.09);
+      background: rgba(217, 144, 47, 0.10);
       font-size: 0.9rem;
       line-height: 1.5;
     }
@@ -678,10 +715,10 @@
       z-index: 5;
       max-width: min(360px, calc(100vw - 40px));
       padding: 13px 16px;
-      border: 1px solid rgba(110, 231, 183, 0.38);
+      border: 1px solid rgba(217, 144, 47, 0.38);
       border-radius: var(--radius);
-      color: var(--text);
-      background: rgba(15, 23, 42, 0.92);
+      color: #fffaf2;
+      background: rgba(52, 35, 24, 0.92);
       box-shadow: var(--shadow);
       opacity: 0;
       transform: translateY(12px);
@@ -778,7 +815,7 @@
 
       <header class="hero">
         <div>
-          <p class="eyebrow">Daily English</p>
+          <p class="eyebrow">Today’s English</p>
           <h1>Sabrina English</h1>
           <p class="subtitle" id="lessonSubtitle"></p>
         </div>
@@ -787,7 +824,7 @@
           <strong id="dateText"></strong>
           <div class="hero-stats">
             <div class="stat-card">
-              <span>学习连续</span>
+              <span>连续</span>
               <strong id="streakText">0 天</strong>
             </div>
             <div class="stat-card">
@@ -802,13 +839,13 @@
         <div class="section-head">
           <div class="section-title">
             <span class="badge" id="modeBadge">A</span>
-            <h2 id="todayTitle">Today's Lesson</h2>
+            <h2 id="todayTitle">今日学习</h2>
           </div>
           <div class="mode-name" id="modeName"></div>
         </div>
         <div class="progress-wrap">
           <div class="progress-copy">
-            <span id="progressText">今日学习进度</span>
+          <span id="progressText">今天学完这些就很好</span>
             <strong id="progressStatus">0 / 0</strong>
           </div>
           <div class="progress-track" role="progressbar" aria-label="Today's lesson progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -828,7 +865,7 @@
         <div class="section-head">
           <div class="section-title">
             <span class="badge">↻</span>
-            <h2 id="reviewTitle">复习模式</h2>
+            <h2 id="reviewTitle">快速复习</h2>
           </div>
           <button class="primary-btn" id="startReview" type="button">开始复习 5 题</button>
         </div>
@@ -852,9 +889,9 @@
         <div class="section-head">
           <div class="section-title">
             <span class="badge">✓</span>
-            <h2 id="historyTitle">Learned History</h2>
+            <h2 id="historyTitle">学习记录</h2>
           </div>
-          <button class="clear-btn" id="clearHistory" type="button">Clear All</button>
+          <button class="clear-btn" id="clearHistory" type="button">清空</button>
         </div>
         <div id="historyContent"></div>
       </section>
@@ -862,8 +899,8 @@
       <section class="panel" aria-labelledby="backupTitle">
         <div class="section-head">
           <div class="section-title">
-            <span class="badge">⇄</span>
-            <h2 id="backupTitle">备份学习记录</h2>
+            <span class="badge">⋯</span>
+            <h2 id="backupTitle">更多与备份</h2>
           </div>
         </div>
         <div class="tool-grid">
@@ -1178,9 +1215,9 @@
     };
 
     const modeSubtitles = {
-      A: "Five words for sharper everyday English.",
-      B: "Three phrases that fit real conversations.",
-      C: "One pattern you can reuse in many sentences."
+      A: "今天的 5 个单词：先会读，再会用。",
+      B: "今天的 3 个常用短语：放进真实对话里。",
+      C: "今天的 1 个句式：换几个词就能反复使用。"
     };
 
     const today = new Date();
@@ -1386,7 +1423,7 @@
         const learnButton = document.createElement("button");
         learnButton.className = "learn-btn";
         learnButton.type = "button";
-        learnButton.textContent = learned ? "Learned ✓" : "Mark as Learned ✓";
+        learnButton.textContent = learned ? "已学会 ✓" : "学会了 ✓";
         learnButton.disabled = learned;
         learnButton.addEventListener("click", () => markLearned(item, index));
         actions.append(favoriteButton, learnButton);
@@ -1512,7 +1549,7 @@
 
       heroProgress.textContent = `${learnedCount} / ${total}`;
       progressStatus.textContent = completed ? "今日完成 🎉" : `${learnedCount} / ${total}`;
-      progressText.textContent = completed ? "太棒了，今天的内容全部学完！" : "今日学习进度";
+      progressText.textContent = completed ? "太棒了，今天的内容全部学完！" : "今天学完这些就很好";
       progressFill.style.width = `${percent}%`;
       progressTrack.setAttribute("aria-valuenow", String(percent));
     }

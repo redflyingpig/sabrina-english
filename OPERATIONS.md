@@ -1,0 +1,68 @@
+# Sabrina English 运维手册
+
+## 安装与升级
+
+在项目目录运行 `./deploy/install.sh`。脚本会安装网站服务和每日备份两个 macOS LaunchAgent；重复执行就是升级，不会覆盖数据库。
+
+## 初始化三个档案
+
+```sh
+SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin init
+```
+
+这会创建 `Owner`、`Sabrina`、`Max`。初始 PIN 只显示一次，请立即存入密码管理器。
+
+## 重置 PIN
+
+```sh
+SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin reset-pin Sabrina
+```
+
+末尾名字也可以换成 `Owner` 或 `Max`。
+
+## 健康检查
+
+```sh
+curl --fail http://127.0.0.1:18880/api/health
+curl --fail https://sabrina.redflyingpig.com/api/health
+```
+
+## 日志
+
+日志位于 `~/Library/Application Support/SabrinaEnglish/`：`service.log`、`service.err.log`、`backup.log` 和 `backup.err.log`。
+
+## 备份
+
+每天 03:15 自动备份并保留最近 30 份。手动备份：
+
+```sh
+SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.backup --keep 30
+```
+
+备份在 `~/Library/Application Support/SabrinaEnglish/backups/`。
+
+## 恢复
+
+先停止服务并另存当前数据库，再复制目标备份：
+
+```sh
+launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/ai.sabrina-english.site.plist"
+cp "$HOME/Library/Application Support/SabrinaEnglish/sabrina.sqlite3" /tmp/sabrina-before-restore.sqlite3
+cp "/path/to/backup.sqlite3" "$HOME/Library/Application Support/SabrinaEnglish/sabrina.sqlite3"
+sqlite3 "$HOME/Library/Application Support/SabrinaEnglish/sabrina.sqlite3" 'PRAGMA integrity_check;'
+./deploy/install.sh
+```
+
+确认完整性检查输出 `ok`。把示例备份路径换成真实文件。
+
+## Cloudflare Tunnel
+
+公网路由应为 `sabrina.redflyingpig.com -> http://127.0.0.1:18880`。应用只监听 `127.0.0.1`，数据库不会暴露到公网。
+
+## 回滚
+
+安装脚本会把旧 plist 保存为 `.previous`。代码回滚到上一个可用提交后重新执行 `./deploy/install.sh`；操作前先手动备份。
+
+## 卸载
+
+运行 `./deploy/uninstall.sh`。它只移除两个 LaunchAgent，不会删除数据库或备份。

@@ -1,25 +1,7 @@
-# Username profile sync setup
+# Supabase（已停用）
 
-The website uses a learning username instead of accounts or passwords. Entering the same username on any device loads the same cloud record.
+Sabrina English 已不再依赖 Supabase。免费项目会因低流量暂停，不适合这个只供家人使用的个人工具。
 
-The free Supabase project is connected:
+当前生产方案：Mac mini 原生 Python 服务、本地 SQLite、Cloudflare Tunnel，以及 `Owner`、`Sabrina`、`Max` 三个独立 PIN 档案。每天自动备份。
 
-- Project ref: `ghxriablpgkifodeiwxb`
-- Region: Singapore (`ap-southeast-1`)
-- Compute: Nano (Free Plan)
-
-Database changes are tracked in `supabase/migrations/` and deployed with:
-
-```sh
-npx supabase db push --linked
-```
-
-The anon key in `index.html` is intended for browser use. Never place a service-role key in this website.
-
-## How identity works
-
-- Usernames are trimmed, spaces are normalized, and matching is case-insensitive.
-- The URL uses a fragment such as `#user=Sabrina`.
-- Anyone who knows a username can read and change that profile because there is no password.
-- Older private-link profiles are migrated by username. If several old profiles used the same display name, the profile containing the most learned and favorite items is selected.
-- Learning data remains in localStorage when offline and syncs when the cloud connection is available.
+`supabase/` 下的迁移文件仅作历史保留，不再执行。安装、升级、备份和恢复请看 [OPERATIONS.md](OPERATIONS.md)。

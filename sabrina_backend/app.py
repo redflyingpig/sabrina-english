@@ -342,17 +342,43 @@ class SabrinaHandler(BaseHTTPRequestHandler):
     def _valid_state(state: Any) -> bool:
         if not isinstance(state, dict):
             return False
-        for key in ("history", "favorites"):
-            value = state.get(key, [])
-            if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
-                return False
-        if "streak" in state and not isinstance(state["streak"], dict):
+        history = state.get("history", [])
+        favorites = state.get("favorites", [])
+        if not isinstance(history, list) or not all(
+            SabrinaHandler._valid_entry(item, "key") for item in history
+        ):
             return False
+        if not isinstance(favorites, list) or not all(
+            SabrinaHandler._valid_entry(item, "favoriteKey") for item in favorites
+        ):
+            return False
+        streak = state.get("streak")
+        if streak is not None:
+            if not isinstance(streak, dict):
+                return False
+            count = streak.get("count", 0)
+            last_date = streak.get("lastLearnedDate", "")
+            if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+                return False
+            if not isinstance(last_date, str):
+                return False
         if "version" in state and (not isinstance(state["version"], int) or isinstance(state["version"], bool)):
             return False
         if "updatedAt" in state and not isinstance(state["updatedAt"], str):
             return False
         return True
+
+    @staticmethod
+    def _valid_entry(item: Any, identity_key: str) -> bool:
+        if not isinstance(item, dict) or not isinstance(item.get(identity_key), str):
+            return False
+        if not item[identity_key]:
+            return False
+        for key in ("favoriteKey", "date", "mode", "title", "detail", "phonetic", "speech"):
+            if key in item and not isinstance(item[key], str):
+                return False
+        examples = item.get("examples", [])
+        return isinstance(examples, list) and all(isinstance(value, str) for value in examples)
 
     def _serve_static(self, request_path: str) -> None:
         decoded = unquote(request_path)

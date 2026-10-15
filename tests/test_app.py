@@ -163,6 +163,22 @@ class AppTest(unittest.TestCase):
         self.assertEqual(400, status)
         self.assertEqual("invalid_profile_state", body["error"])
 
+        status, _, body = self.request(
+            "PUT",
+            "/api/profile",
+            {
+                "state_version": 0,
+                "state": {
+                    "history": [{"key": "one", "date": {}}],
+                    "favorites": [],
+                    "streak": {"count": -1, "lastLearnedDate": []},
+                },
+            },
+            token=token,
+        )
+        self.assertEqual(400, status)
+        self.assertEqual("invalid_profile_state", body["error"])
+
     def test_cloudflare_client_ip_gets_its_own_rate_limit_bucket(self):
         for _ in range(5):
             self.request(

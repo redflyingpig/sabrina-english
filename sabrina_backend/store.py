@@ -177,6 +177,41 @@ class Store:
             return None
         return {"id": row["id"], "display_name": row["display_name"]}
 
+    def reset_pin(self, username: str, pin: str) -> str:
+        normalized = self.normalize_username(username)
+        self.validate_pin(pin)
+        salt = secrets.token_bytes(16)
+        now = self._utc_now().isoformat()
+        with self._connect() as connection:
+            row = connection.execute(
+                "select id, display_name from profiles where username_normalized = ?",
+                (normalized,),
+            ).fetchone()
+            if row is None:
+                raise KeyError("Profile not found")
+            connection.execute(
+                "update profiles set pin_salt = ?, pin_hash = ?, updated_at = ? where id = ?",
+                (salt, self._pin_hash(pin, salt), now, row["id"]),
+            )
+            connection.execute(
+                "delete from sessions where profile_id = ?", (row["id"],)
+            )
+        return str(row["display_name"])
+
+    def list_profiles(self):
+        with self._connect() as connection:
+            rows = connection.execute(
+                "select display_name, created_at, updated_at from profiles order by id"
+            ).fetchall()
+        return [
+            {
+                "display_name": row["display_name"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+
     def create_session(self, profile_id: int) -> str:
         token = secrets.token_urlsafe(32)
         created = self._utc_now()

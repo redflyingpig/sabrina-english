@@ -1,2 +1,7 @@
 .firecrawl/
 *.log
+*.db
+*.db-wal
+*.db-shm
+*.tmp
+backups/

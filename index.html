@@ -648,7 +648,9 @@
     }
 
     .profile-dialog {
-      width: min(500px, calc(100vw - 28px));
+      width: 500px;
+      max-width: calc(100vw - 28px);
+      overflow: hidden;
       padding: 0;
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -676,14 +678,17 @@
     .profile-field {
       display: grid;
       gap: 8px;
+      min-width: 0;
     }
 
     .profile-field label {
       font-weight: 850;
     }
 
-    .profile-field input {
+    .profile-field input,
+    .profile-field select {
       width: 100%;
+      max-width: 100%;
       min-height: 48px;
       padding: 0 14px;
       border: 1px solid var(--line);
@@ -694,7 +699,8 @@
       outline: none;
     }
 
-    .profile-field input:focus {
+    .profile-field input:focus,
+    .profile-field select:focus {
       border-color: var(--gold);
       box-shadow: 0 0 0 3px rgba(217, 144, 47, 0.14);
     }
@@ -930,12 +936,20 @@
         <p class="eyebrow">Your study profile</p>
         <h2>进入学习档案</h2>
       </div>
-      <p>输入学习用户名即可进入。以后在任何设备输入同一个用户名，都会找回相同的学习记录。</p>
+      <p>选择你的学习档案并输入 PIN。换手机或电脑时登录同一个档案，就能继续学习。</p>
       <div class="profile-field">
         <label for="profileNameInput">学习用户名</label>
-        <input id="profileNameInput" name="profileName" type="text" maxlength="32" autocomplete="nickname" placeholder="例如：Sabrina" required>
+        <select id="profileNameInput" name="profileName" autocomplete="username" required>
+          <option value="Owner">Owner</option>
+          <option value="Sabrina">Sabrina</option>
+          <option value="Max">Max</option>
+        </select>
       </div>
-      <div class="profile-note">这里不设密码：知道用户名的人也能打开和修改这份记录。</div>
+      <div class="profile-field">
+        <label for="profilePinInput">PIN</label>
+        <input id="profilePinInput" name="profilePin" type="password" minlength="6" maxlength="64" inputmode="numeric" autocomplete="current-password" required>
+      </div>
+      <div class="profile-note">PIN 只用于登录，不会写进链接或保存在浏览器里。</div>
       <button class="primary-btn" type="submit">进入学习空间</button>
     </form>
   </dialog>
@@ -943,15 +957,15 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const SUPABASE_URL = "https://ghxriablpgkifodeiwxb.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdoeHJpYWJscGdraWZvZGVpd3hiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3OTY1OTgsImV4cCI6MjA5NzM3MjU5OH0.1qhL18WpzLBPfVDAOESvytHf7Q6IJPRaiUqqxBRQnrE";
     const LEGACY_STORAGE_KEY = "sabrinaEnglishLearnedHistory";
     const LEGACY_FAVORITES_KEY = "sabrinaEnglishFavorites";
     const LEGACY_STREAK_KEY = "sabrinaEnglishStreak";
     const LEGACY_MIGRATION_KEY = "sabrinaEnglishProfileMigrationComplete";
     const BACKUP_VERSION = 1;
-    const USER_HASH_PREFIX = "user=";
-    let activeProfile = readProfileFromHash();
+    const SESSION_KEY = "sabrinaEnglish:session";
+    const SESSION_PROFILE_KEY = "sabrinaEnglish:sessionProfile";
+    let sessionToken = localStorage.getItem(SESSION_KEY);
+    let activeProfile = readSessionProfile();
     let STORAGE_KEY = profileStorageKey("history");
     let FAVORITES_KEY = profileStorageKey("favorites");
     let STREAK_KEY = profileStorageKey("streak");
@@ -960,6 +974,7 @@
     let syncInFlight = false;
     let syncPending = false;
     let profileHydrated = false;
+    let serverStateVersion = 0;
 
     const lessonBank = {
       A: [
@@ -1256,6 +1271,7 @@
     const profileDialog = document.getElementById("profileDialog");
     const profileForm = document.getElementById("profileForm");
     const profileNameInput = document.getElementById("profileNameInput");
+    const profilePinInput = document.getElementById("profilePinInput");
 
     dateText.textContent = new Intl.DateTimeFormat("en-US", {
       weekday: "short",
@@ -1291,22 +1307,21 @@
     importData.addEventListener("click", () => importFile.click());
     importFile.addEventListener("change", importBackup);
     copyProfileLink.addEventListener("click", copyUserLink);
-    changeProfile.addEventListener("click", () => {
-      window.location.hash = "";
-      window.location.reload();
+    changeProfile.addEventListener("click", logoutProfile);
+    profileForm.addEventListener("submit", loginProfile);
+    window.addEventListener("online", () => {
+      if (sessionToken && activeProfile) loadProfileFromServer();
     });
-    profileForm.addEventListener("submit", createProfile);
-    window.addEventListener("hashchange", () => window.location.reload());
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && sessionToken && activeProfile) {
+        loadProfileFromServer();
+      }
+    });
 
     async function initializeApp() {
-      if (!activeProfile) {
+      if (!activeProfile || !sessionToken) {
         renderAll();
-        if (typeof profileDialog.showModal === "function") {
-          profileDialog.showModal();
-        } else {
-          profileDialog.setAttribute("open", "");
-        }
-        profileNameInput.focus();
+        showLoginDialog();
         return;
       }
 
@@ -1315,12 +1330,7 @@
       migrateLegacyData();
       renderAll();
 
-      if (!isCloudConfigured()) {
-        syncState.textContent = "云同步尚未连接";
-        return;
-      }
-
-      await loadProfileFromCloud();
+      await loadProfileFromServer();
     }
 
     function renderAll() {
@@ -1330,22 +1340,47 @@
       renderStreak();
     }
 
-    function createProfile(event) {
+    async function loginProfile(event) {
       event.preventDefault();
-      const name = profileNameInput.value.trim();
-      if (!normalizeUsername(name)) {
+      const username = profileNameInput.value;
+      const pin = profilePinInput.value;
+      if (!username || pin.length < 6 || pin.length > 64) {
+        showToast("请输入有效的 PIN。");
         return;
       }
-
-      window.location.hash = `${USER_HASH_PREFIX}${encodeURIComponent(name)}`;
+      const submitButton = profileForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      try {
+        const result = await apiRequest("/api/auth/login", {
+          method: "POST",
+          body: { username, pin },
+          authenticated: false
+        });
+        sessionToken = result.token;
+        localStorage.setItem(SESSION_KEY, sessionToken);
+        setActiveProfile(result.profile.display_name);
+        profilePinInput.value = "";
+        profileDialog.close();
+        profileBar.hidden = false;
+        profileName.textContent = activeProfile.name;
+        migrateLegacyData();
+        renderAll();
+        profileHydrated = false;
+        await loadProfileFromServer();
+      } catch (error) {
+        showToast(error.status === 429 ? "尝试次数太多，请稍后再试。" : "用户名或 PIN 不正确。");
+        profilePinInput.select();
+      } finally {
+        submitButton.disabled = false;
+      }
     }
 
     async function copyUserLink() {
       try {
-        await navigator.clipboard.writeText(window.location.href);
-        showToast("用户链接已复制。也可以直接输入同一个用户名。");
+        await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}`);
+        showToast("网站链接已复制；PIN 不会包含在链接中。");
       } catch {
-        window.prompt("复制这个用户链接：", window.location.href);
+        window.prompt("复制这个网站链接：", `${window.location.origin}${window.location.pathname}`);
       }
     }
 
@@ -1835,39 +1870,58 @@
       }
     }
 
-    function readProfileFromHash() {
-      const hash = window.location.hash.slice(1);
+    function readSessionProfile() {
       try {
-        if (hash.startsWith(USER_HASH_PREFIX)) {
-          const name = decodeURIComponent(hash.slice(USER_HASH_PREFIX.length)).trim();
-          const username = normalizeUsername(name);
-          return username ? { name, username } : null;
-        }
-
-        if (hash.startsWith("profile=")) {
-          const legacyValue = hash.slice("profile=".length);
-          const separator = legacyValue.lastIndexOf(".");
-          const name = separator > 0 ? decodeURIComponent(legacyValue.slice(0, separator)).trim() : "";
-          const username = normalizeUsername(name);
-          if (!username) {
-            return null;
-          }
-          window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${USER_HASH_PREFIX}${encodeURIComponent(name)}`);
-          return { name, username };
-        }
-
-        return null;
+        const name = localStorage.getItem(SESSION_PROFILE_KEY);
+        return name ? { name, username: name.trim().replace(/\s+/g, " ").toLocaleLowerCase() } : null;
       } catch {
         return null;
       }
     }
 
-    function normalizeUsername(value) {
-      const normalized = value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
-      if (!normalized || normalized.length > 32) {
-        return null;
+    function setActiveProfile(name) {
+      const normalizedName = name.trim().replace(/\s+/g, " ");
+      activeProfile = { name: normalizedName, username: normalizedName.toLocaleLowerCase() };
+      localStorage.setItem(SESSION_PROFILE_KEY, normalizedName);
+      STORAGE_KEY = profileStorageKey("history");
+      FAVORITES_KEY = profileStorageKey("favorites");
+      STREAK_KEY = profileStorageKey("streak");
+      PROFILE_UPDATED_KEY = profileStorageKey("updatedAt");
+    }
+
+    function showLoginDialog() {
+      if (activeProfile) profileNameInput.value = activeProfile.name;
+      if (!profileDialog.open) {
+        if (typeof profileDialog.showModal === "function") {
+          profileDialog.showModal();
+        } else {
+          profileDialog.setAttribute("open", "");
+        }
       }
-      return normalized;
+      profilePinInput.focus();
+    }
+
+    async function logoutProfile() {
+      try {
+        if (sessionToken) {
+          await apiRequest("/api/auth/logout", { method: "POST" });
+        }
+      } catch {
+        // Local logout must still succeed if the Mac mini is temporarily offline.
+      }
+      localStorage.removeItem(SESSION_KEY);
+      sessionToken = null;
+      profileHydrated = false;
+      profileBar.hidden = true;
+      showLoginDialog();
+    }
+
+    function handleExpiredSession() {
+      localStorage.removeItem(SESSION_KEY);
+      sessionToken = null;
+      profileHydrated = false;
+      syncState.textContent = "登录已过期 · 本机记录仍保留";
+      showLoginDialog();
     }
 
     function profileStorageKey(type) {
@@ -1892,13 +1946,6 @@
         localStorage.setItem(PROFILE_UPDATED_KEY, new Date().toISOString());
       }
       localStorage.setItem(LEGACY_MIGRATION_KEY, "true");
-    }
-
-    function isCloudConfigured() {
-      return SUPABASE_URL.startsWith("https://") &&
-        !SUPABASE_URL.includes("YOUR_") &&
-        SUPABASE_ANON_KEY.length > 40 &&
-        !SUPABASE_ANON_KEY.includes("YOUR_");
     }
 
     function getProfileState() {
@@ -1926,63 +1973,62 @@
       }
     }
 
-    async function callProfileRpc(functionName, payload) {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${functionName}`, {
-        method: "POST",
-        keepalive: true,
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify(payload)
+    async function apiRequest(path, options = {}) {
+      const authenticated = options.authenticated !== false;
+      const headers = { ...(options.headers || {}) };
+      if (options.body !== undefined) headers["Content-Type"] = "application/json";
+      if (authenticated && sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+      const response = await fetch(path, {
+        method: options.method || "GET",
+        headers,
+        body: options.body === undefined ? undefined : JSON.stringify(options.body)
       });
-
-      if (!response.ok) {
-        throw new Error(`Cloud request failed: ${response.status}`);
-      }
       const text = await response.text();
-      return text ? JSON.parse(text) : null;
+      const payload = text ? JSON.parse(text) : null;
+      if (!response.ok) {
+        const error = new Error(payload?.message || `Request failed: ${response.status}`);
+        error.status = response.status;
+        error.payload = payload;
+        throw error;
+      }
+      return payload;
     }
 
-    async function loadProfileFromCloud() {
+    async function loadProfileFromServer() {
       syncState.textContent = "正在同步…";
       try {
-        const result = await callProfileRpc("load_study_user", {
-          p_username: activeProfile.username
-        });
-        const cloudRecord = Array.isArray(result) ? result[0] : result;
-        const cloudState = cloudRecord?.state;
-
-        if (cloudState) {
-          if (cloudRecord.display_name) {
-            activeProfile.name = cloudRecord.display_name;
-            profileName.textContent = cloudRecord.display_name;
+        const result = await apiRequest("/api/profile");
+        const serverState = result.state;
+        serverStateVersion = result.state_version;
+        if (serverState) {
+          if (result.display_name) {
+            setActiveProfile(result.display_name);
+            profileName.textContent = result.display_name;
           }
           const localState = hasLocalProfileData() ? getProfileState() : null;
-          const mergedState = localState ? mergeProfileStates(cloudState, localState) : cloudState;
+          const mergedState = localState ? mergeProfileStates(serverState, localState) : serverState;
           applyProfileState(mergedState);
-          localStorage.setItem(PROFILE_UPDATED_KEY, mergedState.updatedAt || cloudState.updatedAt || new Date().toISOString());
+          localStorage.setItem(PROFILE_UPDATED_KEY, mergedState.updatedAt || new Date().toISOString());
           renderAll();
           profileHydrated = true;
-
-          if (localState && JSON.stringify(mergedState) !== JSON.stringify(cloudState)) {
-            await saveProfileToCloud();
+          if (localState && JSON.stringify(mergedState) !== JSON.stringify(serverState)) {
+            await saveProfileToServer();
           } else {
-            syncState.textContent = "已从云端同步";
+            syncState.textContent = "已同步到 Mac mini";
           }
-        } else {
-          profileHydrated = true;
-          await saveProfileToCloud();
         }
-      } catch {
+      } catch (error) {
+        if (error.status === 401) {
+          handleExpiredSession();
+          return;
+        }
         syncState.textContent = "离线模式 · 稍后自动重试";
         profileHydrated = true;
       }
 
-      if (syncPending && isCloudConfigured()) {
+      if (syncPending && sessionToken) {
         syncPending = false;
-        await saveProfileToCloud();
+        await saveProfileToServer();
       }
     }
 
@@ -2026,7 +2072,7 @@
         return;
       }
       localStorage.setItem(PROFILE_UPDATED_KEY, new Date().toISOString());
-      if (!isCloudConfigured()) {
+      if (!sessionToken) {
         return;
       }
       clearTimeout(syncTimer);
@@ -2035,11 +2081,11 @@
         syncPending = true;
         return;
       }
-      syncTimer = setTimeout(saveProfileToCloud, 100);
+      syncTimer = setTimeout(saveProfileToServer, 100);
     }
 
-    async function saveProfileToCloud() {
-      if (syncInFlight || !activeProfile || !isCloudConfigured()) {
+    async function saveProfileToServer(retryOnConflict = true) {
+      if (syncInFlight || !activeProfile || !sessionToken) {
         return;
       }
 
@@ -2051,19 +2097,34 @@
       syncInFlight = true;
       syncState.textContent = "正在同步…";
       try {
-        await callProfileRpc("save_study_user", {
-          p_username: activeProfile.username,
-          p_display_name: activeProfile.name,
-          p_state: getProfileState()
+        const saved = await apiRequest("/api/profile", {
+          method: "PUT",
+          body: {
+            state_version: serverStateVersion,
+            state: getProfileState()
+          }
         });
-        syncState.textContent = "已同步到云端";
-      } catch {
+        serverStateVersion = saved.state_version;
+        syncState.textContent = "已同步到 Mac mini";
+      } catch (error) {
+        if (error.status === 409 && retryOnConflict && error.payload?.current) {
+          const merged = mergeProfileStates(error.payload.current.state, getProfileState());
+          applyProfileState(merged);
+          serverStateVersion = error.payload.current.state_version;
+          syncInFlight = false;
+          await saveProfileToServer(false);
+          return;
+        }
+        if (error.status === 401) {
+          handleExpiredSession();
+          return;
+        }
         syncState.textContent = "同步失败 · 记录仍保存在本机";
       } finally {
         syncInFlight = false;
         if (syncPending) {
           syncPending = false;
-          syncTimer = setTimeout(saveProfileToCloud, 100);
+          syncTimer = setTimeout(saveProfileToServer, 100);
         }
       }
     }

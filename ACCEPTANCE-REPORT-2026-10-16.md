@@ -225,16 +225,18 @@ $ 再跑一次 → sabrina-…4716.db  sabrina-…4717.db                   （�
 | `tests/test_admin_backup.py` | 新增 3 条测试（sidecar 残留、只读自包含、runbook 恢复顺序行为） |
 | `OPERATIONS.md` | 备份目录应只有 `sabrina-*.db` 的说明 |
 | `ACCEPTANCE-REPORT-2026-10-16.md` | 本报告 |
-| `.superpowers/sdd/2026-10-15-mac-mini-sqlite-sync/progress.md` | Task 6 收尾状态（一行） |
+| `.superpowers/sdd/2026-10-15-mac-mini-sqlite-sync/progress.md` | Task 6 收尾状态（一行；本地 SDD 台账，被 `.gitignore` 忽略，不入提交） |
 
 提交（本地，未 push）：
 
 ```
-f44b813  fix: keep finished backups self-contained      ← 本次唯一的代码修复
-<report>  docs: add Task 6 acceptance report            ← 本报告 + 台账更新
+f44b813  fix: keep finished backups self-contained   ← 本次唯一的代码修复
+7ef6c06  docs: add Task 6 acceptance report          ← 本报告首次提交
 ```
 
-`main` 现领先 `origin/main` **14 个 commit**（其中 12 个来自任务 1–5 与部署后修复，2 个来自本次收尾）。**没有 push、没有 force、没有改历史。**
+（其后还有一次纯文档微调，只回填了上面两个哈希与提交计数，`git log --oneline -3` 可见。）
+
+`main` 现领先 `origin/main` **15 个 commit**（其中 12 个来自任务 1–5 与部署后修复，3 个来自本次收尾）。**没有 push、没有 force、没有改历史。**
 
 ## 8. 未完成项 / 待 Alex 处理（含命令）
 

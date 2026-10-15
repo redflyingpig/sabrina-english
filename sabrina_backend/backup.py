@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import sqlite3
 from datetime import datetime, timezone
@@ -34,17 +35,31 @@ def backup_database(
     temporary = backup_dir / f".{filename}.tmp"
 
     try:
-        with sqlite3.connect(source_path) as source, sqlite3.connect(temporary) as target:
+        with contextlib.closing(sqlite3.connect(source_path)) as source, contextlib.closing(
+            sqlite3.connect(temporary)
+        ) as target:
             source.backup(target)
-        with sqlite3.connect(temporary) as check:
+        with contextlib.closing(sqlite3.connect(temporary)) as check:
+            # Finish the copied WAL inside the temporary file and leave the finished backup in
+            # rollback-journal mode: a backup must be readable on its own, without -wal/-shm
+            # sidecars and without write access to the backup directory.
+            check.execute("pragma journal_mode = delete")
             integrity = check.execute("pragma integrity_check").fetchone()[0]
         if integrity != "ok":
             raise RuntimeError(f"Backup integrity check failed: {integrity}")
         os.chmod(temporary, 0o600)
         os.replace(temporary, destination)
     finally:
-        if temporary.exists():
-            temporary.unlink()
+        # Connections stay closed above, so anything left behind is stale sidecar residue.
+        for leftover in (
+            temporary,
+            Path(f"{temporary}-wal"),
+            Path(f"{temporary}-shm"),
+            Path(f"{destination}-wal"),
+            Path(f"{destination}-shm"),
+        ):
+            with contextlib.suppress(FileNotFoundError):
+                leftover.unlink()
 
     backups = sorted(backup_dir.glob("sabrina-*.db"), reverse=True)
     for expired in backups[keep:]:

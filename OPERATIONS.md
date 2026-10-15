@@ -7,7 +7,7 @@
 ## 初始化三个档案
 
 ```sh
-SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin init
+SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin init-profiles
 ```
 
 这会创建 `Owner`、`Sabrina`、`Max`。初始 PIN 只显示一次，请立即存入密码管理器。
@@ -47,9 +47,9 @@ SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/pyt
 
 ```sh
 launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/ai.sabrina-english.site.plist"
-cp "$HOME/Library/Application Support/SabrinaEnglish/sabrina.sqlite3" /tmp/sabrina-before-restore.sqlite3
-cp "/path/to/backup.sqlite3" "$HOME/Library/Application Support/SabrinaEnglish/sabrina.sqlite3"
-sqlite3 "$HOME/Library/Application Support/SabrinaEnglish/sabrina.sqlite3" 'PRAGMA integrity_check;'
+cp "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db" /tmp/sabrina-before-restore.db
+cp "/path/to/backup.db" "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db"
+sqlite3 "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db" 'PRAGMA integrity_check;'
 ./deploy/install.sh
 ```
 

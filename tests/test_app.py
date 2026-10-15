@@ -103,6 +103,35 @@ class AppTest(unittest.TestCase):
         self.assertEqual(401, status)
         self.assertEqual("unauthorized", body["error"])
 
+    def test_logout_consumes_body_before_next_keepalive_request(self):
+        token = self.login()
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        connection.request(
+            "POST",
+            "/api/auth/logout",
+            body=b"{}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+        )
+        response = connection.getresponse()
+        response.read()
+        self.assertEqual(204, response.status)
+
+        connection.request(
+            "POST",
+            "/api/auth/login",
+            body=json.dumps({"username": "Sabrina", "pin": "234567"}),
+            headers={"Content-Type": "application/json"},
+        )
+        response = connection.getresponse()
+        body = json.loads(response.read().decode("utf-8"))
+        connection.close()
+
+        self.assertEqual(200, response.status)
+        self.assertEqual("Sabrina", body["profile"]["display_name"])
+
     def test_token_cannot_select_another_profile(self):
         owner_token = self.login()
         sabrina_token = self.login("Sabrina", "234567")

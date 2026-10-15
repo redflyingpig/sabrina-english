@@ -270,6 +270,9 @@ class SabrinaHandler(BaseHTTPRequestHandler):
         )
 
     def _logout(self) -> None:
+        payload = self._read_json()
+        if payload is None:
+            return
         token, profile = self._authenticated()
         if profile is None:
             return

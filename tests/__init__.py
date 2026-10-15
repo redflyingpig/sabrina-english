@@ -1,2 +1,1 @@
 """Sabrina English test suite."""
-

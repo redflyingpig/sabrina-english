@@ -71,7 +71,8 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn('const SESSION_KEY = "sabrinaEnglish:session"', self.html)
         self.assertIn('apiRequest("/api/auth/login"', self.html)
         self.assertIn('apiRequest("/api/profile"', self.html)
-        self.assertIn("headers.Authorization = `Bearer ${sessionToken}`", self.html)
+        self.assertIn("headers.Authorization = `Bearer ${requestToken}`", self.html)
+        self.assertIn("sessionIsCurrent(context)", self.html)
 
     def test_local_write_precedes_sync(self):
         body = self.function_body("scheduleProfileSync")

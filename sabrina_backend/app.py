@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import logging
 import mimetypes
@@ -112,6 +113,8 @@ class SabrinaHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        if self.close_connection:
+            self.send_header("Connection", "close")
         for name, value in self._security_headers(dynamic).items():
             self.send_header(name, value)
         self.end_headers()
@@ -181,6 +184,7 @@ class SabrinaHandler(BaseHTTPRequestHandler):
         token = self._bearer_token()
         profile = self.server.store.resolve_session(token) if token else None
         if profile is None:
+            self.close_connection = True
             self._error(401, "unauthorized", "A valid session is required")
             return None, None
         return token, profile
@@ -198,6 +202,7 @@ class SabrinaHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         if not self._origin_allowed():
+            self.close_connection = True
             self._error(403, "forbidden_origin", "Cross-origin request rejected")
             return
         path = urlsplit(self.path).path
@@ -206,15 +211,18 @@ class SabrinaHandler(BaseHTTPRequestHandler):
         elif path == "/api/auth/logout":
             self._logout()
         else:
+            self.close_connection = True
             self._error(404, "not_found", "API endpoint not found")
 
     def do_PUT(self) -> None:
         if not self._origin_allowed():
+            self.close_connection = True
             self._error(403, "forbidden_origin", "Cross-origin request rejected")
             return
         if urlsplit(self.path).path == "/api/profile":
             self._put_profile()
         else:
+            self.close_connection = True
             self._error(404, "not_found", "API endpoint not found")
 
     def _health(self) -> None:
@@ -239,7 +247,7 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             normalized = self.server.store.normalize_username(username)
         except ValueError:
             normalized = ""
-        key = (self.client_address[0], normalized)
+        key = (self._client_ip(), normalized)
         now = time.monotonic()
         failures = [
             timestamp
@@ -298,7 +306,7 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             not isinstance(state_version, int)
             or isinstance(state_version, bool)
             or state_version < 0
-            or not isinstance(state, dict)
+            or not self._valid_state(state)
         ):
             self._error(
                 400,
@@ -320,9 +328,38 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             return
         self._send_json(200, saved)
 
+    def _client_ip(self) -> str:
+        peer = self.client_address[0]
+        if peer not in {"127.0.0.1", "::1"}:
+            return peer
+        forwarded = self.headers.get("CF-Connecting-IP", "").strip()
+        try:
+            return str(ipaddress.ip_address(forwarded)) if forwarded else peer
+        except ValueError:
+            return peer
+
+    @staticmethod
+    def _valid_state(state: Any) -> bool:
+        if not isinstance(state, dict):
+            return False
+        for key in ("history", "favorites"):
+            value = state.get(key, [])
+            if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+                return False
+        if "streak" in state and not isinstance(state["streak"], dict):
+            return False
+        if "version" in state and (not isinstance(state["version"], int) or isinstance(state["version"], bool)):
+            return False
+        if "updatedAt" in state and not isinstance(state["updatedAt"], str):
+            return False
+        return True
+
     def _serve_static(self, request_path: str) -> None:
         decoded = unquote(request_path)
         relative = decoded.lstrip("/") or "index.html"
+        if relative != "index.html":
+            self._error(404, "not_found", "File not found")
+            return
         candidate = (self.server.root_dir / relative).resolve()
         try:
             candidate.relative_to(self.server.root_dir)

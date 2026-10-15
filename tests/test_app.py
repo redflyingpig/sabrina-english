@@ -70,6 +70,12 @@ class AppTest(unittest.TestCase):
         self.assertEqual(200, status)
         self.assertEqual({"status": "ok", "database": "ok"}, health)
 
+        (self.root_dir / ".git").mkdir()
+        (self.root_dir / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+        status, _, body = self.request("GET", "/.git/HEAD")
+        self.assertEqual(404, status)
+        self.assertEqual("not_found", body["error"])
+
     def test_health_reports_database_error(self):
         self.server.store.db_path.unlink()
         self.server.store.db_path.mkdir()
@@ -131,6 +137,47 @@ class AppTest(unittest.TestCase):
 
         self.assertEqual(200, response.status)
         self.assertEqual("Sabrina", body["profile"]["display_name"])
+
+    def test_rejected_put_closes_connection_without_poisoning_next_request(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        connection.request(
+            "PUT",
+            "/api/profile",
+            body=b"{}",
+            headers={"Content-Type": "application/json", "Authorization": "Bearer bad"},
+        )
+        response = connection.getresponse()
+        response.read()
+        self.assertEqual(401, response.status)
+        self.assertEqual("close", response.getheader("Connection"))
+        connection.close()
+
+    def test_rejects_invalid_profile_state(self):
+        token = self.login()
+        status, _, body = self.request(
+            "PUT",
+            "/api/profile",
+            {"state_version": 0, "state": {"history": {}, "favorites": 42}},
+            token=token,
+        )
+        self.assertEqual(400, status)
+        self.assertEqual("invalid_profile_state", body["error"])
+
+    def test_cloudflare_client_ip_gets_its_own_rate_limit_bucket(self):
+        for _ in range(5):
+            self.request(
+                "POST",
+                "/api/auth/login",
+                {"username": "Owner", "pin": "wrong"},
+                headers={"CF-Connecting-IP": "203.0.113.10"},
+            )
+        status, _, _ = self.request(
+            "POST",
+            "/api/auth/login",
+            {"username": "Owner", "pin": "123456"},
+            headers={"CF-Connecting-IP": "203.0.113.11"},
+        )
+        self.assertEqual(200, status)
 
     def test_token_cannot_select_another_profile(self):
         owner_token = self.login()

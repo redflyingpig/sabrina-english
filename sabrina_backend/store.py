@@ -303,4 +303,12 @@ class Store:
                         "state_version": current["state_version"],
                     }
                 )
-        return self.read_state(profile_id)
+            current = connection.execute(
+                "select display_name from profiles where id = ?", (profile_id,)
+            ).fetchone()
+            saved = {
+                "display_name": current["display_name"],
+                "state": json.loads(serialized),
+                "state_version": expected_version + 1,
+            }
+        return saved

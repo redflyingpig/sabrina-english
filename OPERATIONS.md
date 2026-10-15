@@ -29,7 +29,7 @@ curl --fail https://sabrina.redflyingpig.com/api/health
 
 ## 日志
 
-日志位于 `~/Library/Application Support/SabrinaEnglish/`：`service.log`、`service.err.log`、`backup.log` 和 `backup.err.log`。
+日志位于 `~/Library/Application Support/SabrinaEnglish/`：应用轮转日志 `sabrina.log`，以及 `service.log`、`service.err.log`、`backup.log` 和 `backup.err.log`。
 
 ## 备份
 
@@ -43,12 +43,16 @@ SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/pyt
 
 ## 恢复
 
-先停止服务并另存当前数据库，再复制目标备份：
+先停止网站和备份任务，用 SQLite backup API 保存当前完整快照，再把主库及 WAL sidecar 一起隔离。不要直接覆盖正在使用的 `sabrina.db`，否则旧 WAL 可能被重放，出现“检查为 ok，但恢复的是旧数据”的假成功。
 
 ```sh
 launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/ai.sabrina-english.site.plist"
-cp "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db" /tmp/sabrina-before-restore.db
-cp "/path/to/backup.db" "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db"
+launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/ai.sabrina-english.backup.plist"
+SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.backup --keep 30
+mkdir -p "$HOME/Library/Application Support/SabrinaEnglish/pre-restore"
+mv "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db"* "$HOME/Library/Application Support/SabrinaEnglish/pre-restore/"
+cp "/path/to/backup.db" "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db.restore"
+mv "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db.restore" "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db"
 sqlite3 "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db" 'PRAGMA integrity_check;'
 ./deploy/install.sh
 ```

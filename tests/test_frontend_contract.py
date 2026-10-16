@@ -110,6 +110,32 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn("speechSynthesis", self.html)
         self.assertIn("function mergeProfileStates", self.html)
 
+    def test_completed_lesson_offers_an_unseen_next_batch_in_same_mode(self):
+        next_button = self.attributes_for_id("nextBatch")
+        self.assertEqual("button", next(
+            tag for tag, attrs in self.elements.elements if attrs.get("id") == "nextBatch"
+        ))
+        self.assertIn("hidden", next_button)
+        self.assertIn("function selectNextLessonSet", self.html)
+        self.assertIn("lessonBank[currentMode]", self.function_body("selectNextLessonSet"))
+        self.assertIn("learnedFavoriteKeys", self.function_body("selectNextLessonSet"))
+        self.assertIn("nextBatch.hidden = !completed", self.function_body("renderProgress"))
+        self.assertIn('nextBatch.addEventListener("click"', self.html)
+        self.assertIn("lessonSet = getLessonSet(mode, lessonSetIndex)", self.html)
+
+    def test_learning_pool_is_large_enough_to_delay_repeats(self):
+        self.assertGreaterEqual(self.html.count("{ word:"), 200)
+        self.assertGreaterEqual(self.html.count("{ expression:"), 60)
+        self.assertGreaterEqual(self.html.count("pattern:"), 20)
+        self.assertIn("No unseen batches remain", self.html)
+
+    def test_backup_controls_are_compact(self):
+        backup_section = self.html.split('aria-labelledby="backupTitle"', 1)[1].split("</section>", 1)[0]
+        self.assertIn('class="backup-actions"', backup_section)
+        self.assertIn('class="small-btn" id="exportData"', backup_section)
+        self.assertIn('class="small-btn" id="importData"', backup_section)
+        self.assertNotIn('class="tool-grid"', backup_section)
+
 
 if __name__ == "__main__":
     unittest.main()

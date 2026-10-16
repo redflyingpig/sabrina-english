@@ -280,6 +280,16 @@
       transition: width 260ms ease;
     }
 
+    .next-batch-wrap {
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 4px;
+    }
+
+    .next-batch-wrap[hidden] {
+      display: none;
+    }
+
     .lesson-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -543,6 +553,27 @@
       flex-wrap: wrap;
       gap: 10px;
       margin-top: auto;
+    }
+
+    .backup-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 12px 18px 16px;
+    }
+
+    .small-btn {
+      min-height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.52);
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 800;
+      cursor: pointer;
     }
 
     .review-stage {
@@ -857,6 +888,9 @@
           <div class="progress-track" role="progressbar" aria-label="Today's lesson progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
             <div class="progress-fill" id="progressFill"></div>
           </div>
+          <div class="next-batch-wrap" id="nextBatchWrap" hidden>
+            <button class="primary-btn" id="nextBatch" type="button" hidden>再学一组 →</button>
+          </div>
         </div>
         <p class="lesson-source" id="lessonSource" hidden>
           Vocabulary selection is aligned with
@@ -909,22 +943,11 @@
             <h2 id="backupTitle">更多与备份</h2>
           </div>
         </div>
-        <div class="tool-grid">
-          <div class="tool-card">
-            <h3>导出记录</h3>
-            <p>下载一个 JSON 备份文件，可保存学习历史、连续天数和标星内容。</p>
-            <div class="tool-actions">
-              <button class="secondary-btn" id="exportData" type="button">导出备份</button>
-            </div>
-          </div>
-          <div class="tool-card">
-            <h3>导入记录</h3>
-            <p>在另一台设备选择之前导出的文件，即可恢复进度。</p>
-            <div class="tool-actions">
-              <button class="secondary-btn" id="importData" type="button">选择备份文件</button>
-              <input class="file-input" id="importFile" type="file" accept="application/json,.json">
-            </div>
-          </div>
+        <div class="backup-actions">
+          <button class="small-btn" id="exportData" type="button">↓ 导出</button>
+          <button class="small-btn" id="importData" type="button">↑ 导入</button>
+          <input class="file-input" id="importFile" type="file" accept="application/json,.json">
+          <span class="sync-state">JSON 学习记录备份</span>
         </div>
       </section>
     </div>
@@ -1224,6 +1247,233 @@
       ]
     };
 
+    lessonBank.A.push(
+      [
+        { word: "achieve", phonetic: "/əˈtʃiːv/", translation: "实现；达到", example: "Small steps help you achieve a big goal." },
+        { word: "advice", phonetic: "/ədˈvaɪs/", translation: "建议", example: "My teacher gave me useful advice." },
+        { word: "allow", phonetic: "/əˈlaʊ/", translation: "允许", example: "The museum does not allow food inside." },
+        { word: "appear", phonetic: "/əˈpɪr/", translation: "出现；显得", example: "A rainbow appeared after the rain." },
+        { word: "average", phonetic: "/ˈævərɪdʒ/", translation: "平均的", example: "The average journey takes twenty minutes." }
+      ],
+      [
+        { word: "balance", phonetic: "/ˈbæləns/", translation: "平衡", example: "She kept her balance on the narrow path." },
+        { word: "behave", phonetic: "/bɪˈheɪv/", translation: "表现；守规矩", example: "The children behaved well at dinner." },
+        { word: "belong", phonetic: "/bɪˈlɔːŋ/", translation: "属于", example: "This blue umbrella belongs to Max." },
+        { word: "benefit", phonetic: "/ˈbenɪfɪt/", translation: "益处；受益", example: "Daily reading benefits your vocabulary." },
+        { word: "breathe", phonetic: "/briːð/", translation: "呼吸", example: "Breathe slowly and try to relax." }
+      ],
+      [
+        { word: "cancel", phonetic: "/ˈkænsl/", translation: "取消", example: "They cancelled the picnic because of rain." },
+        { word: "certain", phonetic: "/ˈsɜːrtn/", translation: "确定的；某个", example: "I am certain that I locked the door." },
+        { word: "compare", phonetic: "/kəmˈper/", translation: "比较", example: "Compare the two pictures carefully." },
+        { word: "complete", phonetic: "/kəmˈpliːt/", translation: "完成；完整的", example: "Please complete the form before Friday." },
+        { word: "connect", phonetic: "/kəˈnekt/", translation: "连接", example: "This bridge connects the two villages." }
+      ],
+      [
+        { word: "consider", phonetic: "/kənˈsɪdər/", translation: "考虑", example: "Please consider all the choices first." },
+        { word: "continue", phonetic: "/kənˈtɪnjuː/", translation: "继续", example: "We continued walking after a short rest." },
+        { word: "create", phonetic: "/kriˈeɪt/", translation: "创造", example: "The class created a colourful poster." },
+        { word: "describe", phonetic: "/dɪˈskraɪb/", translation: "描述", example: "Can you describe the person you saw?" },
+        { word: "develop", phonetic: "/dɪˈveləp/", translation: "发展；培养", example: "Practice helps you develop confidence." }
+      ],
+      [
+        { word: "discover", phonetic: "/dɪˈskʌvər/", translation: "发现", example: "We discovered a quiet beach nearby." },
+        { word: "distance", phonetic: "/ˈdɪstəns/", translation: "距离", example: "The distance to school is two kilometres." },
+        { word: "divide", phonetic: "/dɪˈvaɪd/", translation: "分开；除", example: "Divide the cake into six pieces." },
+        { word: "effort", phonetic: "/ˈefərt/", translation: "努力", example: "Your effort is more important than speed." },
+        { word: "empty", phonetic: "/ˈempti/", translation: "空的", example: "The bottle is completely empty." }
+      ],
+      [
+        { word: "encourage", phonetic: "/ɪnˈkɜːrɪdʒ/", translation: "鼓励", example: "Good teachers encourage students to ask questions." },
+        { word: "energy", phonetic: "/ˈenərdʒi/", translation: "能量；精力", example: "A healthy breakfast gives you energy." },
+        { word: "expect", phonetic: "/ɪkˈspekt/", translation: "期待；预计", example: "We expect the bus to arrive soon." },
+        { word: "experience", phonetic: "/ɪkˈspɪriəns/", translation: "经历；经验", example: "Travelling was a valuable experience." },
+        { word: "familiar", phonetic: "/fəˈmɪliər/", translation: "熟悉的", example: "Her voice sounds familiar to me." }
+      ],
+      [
+        { word: "famous", phonetic: "/ˈfeɪməs/", translation: "著名的", example: "The town is famous for its old bridge." },
+        { word: "feature", phonetic: "/ˈfiːtʃər/", translation: "特征；功能", example: "The app has a useful search feature." },
+        { word: "forward", phonetic: "/ˈfɔːrwərd/", translation: "向前", example: "Take one step forward." },
+        { word: "general", phonetic: "/ˈdʒenərəl/", translation: "一般的；总体的", example: "This is a general guide for visitors." },
+        { word: "gradually", phonetic: "/ˈɡrædʒuəli/", translation: "逐渐地", example: "The sky gradually became darker." }
+      ],
+      [
+        { word: "imagine", phonetic: "/ɪˈmædʒɪn/", translation: "想象", example: "Imagine living beside the sea." },
+        { word: "improve", phonetic: "/ɪmˈpruːv/", translation: "改善；提高", example: "Reading aloud can improve pronunciation." },
+        { word: "include", phonetic: "/ɪnˈkluːd/", translation: "包括", example: "The price includes breakfast." },
+        { word: "increase", phonetic: "/ɪnˈkriːs/", translation: "增加", example: "The number of visitors increased this year." },
+        { word: "independent", phonetic: "/ˌɪndɪˈpendənt/", translation: "独立的", example: "She became a more independent learner." }
+      ],
+      [
+        { word: "instead", phonetic: "/ɪnˈsted/", translation: "代替；反而", example: "We stayed home instead of going out." },
+        { word: "local", phonetic: "/ˈloʊkl/", translation: "当地的", example: "We bought fruit at the local market." },
+        { word: "manage", phonetic: "/ˈmænɪdʒ/", translation: "设法做到；管理", example: "I managed to catch the last train." },
+        { word: "measure", phonetic: "/ˈmeʒər/", translation: "测量", example: "Measure the table before buying a cloth." },
+        { word: "mention", phonetic: "/ˈmenʃn/", translation: "提到", example: "He mentioned your name in the meeting." }
+      ],
+      [
+        { word: "notice", phonetic: "/ˈnoʊtɪs/", translation: "注意到；通知", example: "Did you notice the new sign?" },
+        { word: "ordinary", phonetic: "/ˈɔːrdneri/", translation: "普通的", example: "It looked like an ordinary box." },
+        { word: "organize", phonetic: "/ˈɔːrɡənaɪz/", translation: "组织；整理", example: "Let us organize the books by topic." },
+        { word: "particular", phonetic: "/pərˈtɪkjələr/", translation: "特定的；特别的", example: "Is there a particular colour you prefer?" },
+        { word: "prepare", phonetic: "/prɪˈper/", translation: "准备", example: "We prepared lunch before the guests arrived." }
+      ],
+      [
+        { word: "prevent", phonetic: "/prɪˈvent/", translation: "防止", example: "A warm coat helps prevent you from getting cold." },
+        { word: "probably", phonetic: "/ˈprɑːbəbli/", translation: "很可能", example: "It will probably rain this afternoon." },
+        { word: "provide", phonetic: "/prəˈvaɪd/", translation: "提供", example: "The hotel provides clean towels." },
+        { word: "realize", phonetic: "/ˈriːəlaɪz/", translation: "意识到", example: "I realized that I had the wrong bag." },
+        { word: "receive", phonetic: "/rɪˈsiːv/", translation: "收到", example: "She received a letter from her cousin." }
+      ],
+      [
+        { word: "recent", phonetic: "/ˈriːsnt/", translation: "最近的", example: "Have you seen his recent photographs?" },
+        { word: "reduce", phonetic: "/rɪˈduːs/", translation: "减少", example: "Turn off lights to reduce energy use." },
+        { word: "refuse", phonetic: "/rɪˈfjuːz/", translation: "拒绝", example: "He politely refused the second piece of cake." },
+        { word: "remain", phonetic: "/rɪˈmeɪn/", translation: "保持；剩下", example: "Only three tickets remain." },
+        { word: "remove", phonetic: "/rɪˈmuːv/", translation: "移走；去除", example: "Please remove your shoes at the door." }
+      ],
+      [
+        { word: "require", phonetic: "/rɪˈkwaɪər/", translation: "需要；要求", example: "This job requires careful planning." },
+        { word: "respect", phonetic: "/rɪˈspekt/", translation: "尊重", example: "We should respect other people's ideas." },
+        { word: "responsible", phonetic: "/rɪˈspɑːnsəbl/", translation: "负责的", example: "She is responsible for feeding the dog." },
+        { word: "result", phonetic: "/rɪˈzʌlt/", translation: "结果", example: "The test result will arrive tomorrow." },
+        { word: "separate", phonetic: "/ˈsepəreɪt/", translation: "分开", example: "Separate the white clothes from the dark ones." }
+      ],
+      [
+        { word: "similar", phonetic: "/ˈsɪmələr/", translation: "相似的", example: "The two answers are very similar." },
+        { word: "solution", phonetic: "/səˈluːʃn/", translation: "解决办法", example: "We found a simple solution to the problem." },
+        { word: "suggest", phonetic: "/səˈdʒest/", translation: "建议", example: "I suggest taking an earlier bus." },
+        { word: "support", phonetic: "/səˈpɔːrt/", translation: "支持", example: "Her family supported her decision." },
+        { word: "survive", phonetic: "/sərˈvaɪv/", translation: "生存", example: "These plants can survive a cold winter." }
+      ],
+      [
+        { word: "temperature", phonetic: "/ˈtemprətʃər/", translation: "温度", example: "The temperature dropped during the night." },
+        { word: "traditional", phonetic: "/trəˈdɪʃənl/", translation: "传统的", example: "They served a traditional family meal." },
+        { word: "transport", phonetic: "/ˈtrænspɔːrt/", translation: "交通；运输", example: "Public transport is convenient in this city." },
+        { word: "usual", phonetic: "/ˈjuːʒuəl/", translation: "通常的", example: "She arrived earlier than usual." },
+        { word: "valuable", phonetic: "/ˈvæljuəbl/", translation: "有价值的", example: "Your time is valuable, so use it well." }
+      ],
+      [
+        { word: "variety", phonetic: "/vəˈraɪəti/", translation: "多样；种类", example: "The shop sells a variety of fresh bread." },
+        { word: "whole", phonetic: "/hoʊl/", translation: "整个的", example: "We spent the whole afternoon outside." },
+        { word: "active", phonetic: "/ˈæktɪv/", translation: "活跃的；积极的", example: "Walking keeps your body active." },
+        { word: "available", phonetic: "/əˈveɪləbl/", translation: "可获得的；有空的", example: "The doctor is available after three." },
+        { word: "avoid", phonetic: "/əˈvɔɪd/", translation: "避免", example: "Leave early to avoid heavy traffic." }
+      ],
+      [
+        { word: "challenge", phonetic: "/ˈtʃælɪndʒ/", translation: "挑战", example: "Learning a language is an enjoyable challenge." },
+        { word: "communicate", phonetic: "/kəˈmjuːnɪkeɪt/", translation: "交流", example: "Pictures can help people communicate." },
+        { word: "confident", phonetic: "/ˈkɑːnfɪdənt/", translation: "自信的", example: "Practice made her more confident." },
+        { word: "convenient", phonetic: "/kənˈviːniənt/", translation: "方便的", example: "Online booking is quick and convenient." },
+        { word: "direction", phonetic: "/dəˈrekʃn/", translation: "方向；指示", example: "Could you give me directions to the station?" }
+      ],
+      [
+        { word: "education", phonetic: "/ˌedʒuˈkeɪʃn/", translation: "教育", example: "Education opens many new opportunities." },
+        { word: "effective", phonetic: "/ɪˈfektɪv/", translation: "有效的", example: "Short daily practice is very effective." },
+        { word: "essential", phonetic: "/ɪˈsenʃl/", translation: "必不可少的", example: "Clean water is essential for life." },
+        { word: "flexible", phonetic: "/ˈfleksəbl/", translation: "灵活的", example: "The timetable is flexible this week." },
+        { word: "opportunity", phonetic: "/ˌɑːpərˈtuːnəti/", translation: "机会", example: "This trip is a good opportunity to practise English." }
+      ],
+      [
+        { word: "positive", phonetic: "/ˈpɑːzətɪv/", translation: "积极的", example: "Try to keep a positive attitude." },
+        { word: "progress", phonetic: "/ˈprɑːɡres/", translation: "进步", example: "You are making steady progress." },
+        { word: "recommend", phonetic: "/ˌrekəˈmend/", translation: "推荐", example: "Can you recommend a good book?" },
+        { word: "regular", phonetic: "/ˈreɡjələr/", translation: "规律的；定期的", example: "Regular exercise helps you sleep well." },
+        { word: "successful", phonetic: "/səkˈsesfl/", translation: "成功的", example: "The school event was very successful." }
+      ],
+      [
+        { word: "suitable", phonetic: "/ˈsuːtəbl/", translation: "合适的", example: "These shoes are suitable for walking." },
+        { word: "typical", phonetic: "/ˈtɪpɪkl/", translation: "典型的", example: "This is a typical winter day here." },
+        { word: "unexpected", phonetic: "/ˌʌnɪkˈspektɪd/", translation: "意外的", example: "We received an unexpected visitor." },
+        { word: "willing", phonetic: "/ˈwɪlɪŋ/", translation: "愿意的", example: "He is always willing to help." },
+        { word: "wise", phonetic: "/waɪz/", translation: "明智的", example: "Saving some money is a wise choice." }
+      ]
+    );
+
+    lessonBank.B.push(
+      [
+        { expression: "Could you say that again?", usage: "没听清时请对方重复。", example: "Could you say that again, please?" },
+        { expression: "What do you think?", usage: "询问对方的看法。", example: "What do you think about this colour?" },
+        { expression: "I'll think about it.", usage: "表示需要时间考虑。", example: "I'll think about it and tell you tomorrow." }
+      ],
+      [
+        { expression: "That sounds great.", usage: "对建议表示积极回应。", example: "A walk after dinner? That sounds great." },
+        { expression: "I'm afraid not.", usage: "礼貌地表示不能或否定。", example: "Can you come tonight? I'm afraid not." },
+        { expression: "It doesn't matter.", usage: "表示某件事不要紧。", example: "It doesn't matter if we are a little late." }
+      ],
+      [
+        { expression: "How does that sound?", usage: "提出安排后询问意见。", example: "We can meet at ten. How does that sound?" },
+        { expression: "That's a good point.", usage: "认可对方提出的观点。", example: "That's a good point. We need more time." },
+        { expression: "I'll be right back.", usage: "表示马上回来。", example: "I'll be right back. I forgot my phone." }
+      ],
+      [
+        { expression: "Could you help me?", usage: "礼貌请求帮助。", example: "Could you help me with this bag?" },
+        { expression: "I'm looking for...", usage: "寻找物品或地点。", example: "I'm looking for the nearest pharmacy." },
+        { expression: "How much is it?", usage: "询问价格。", example: "This notebook is nice. How much is it?" }
+      ],
+      [
+        { expression: "Would you like...?", usage: "礼貌提供东西或邀请。", example: "Would you like some tea?" },
+        { expression: "I'd rather...", usage: "表达更倾向的选择。", example: "I'd rather stay home tonight." },
+        { expression: "It's up to you.", usage: "表示由对方决定。", example: "Tea or coffee? It's up to you." }
+      ],
+      [
+        { expression: "What's going on?", usage: "询问正在发生什么。", example: "Everyone is outside. What's going on?" },
+        { expression: "Are you all right?", usage: "关心对方是否没事。", example: "You look tired. Are you all right?" },
+        { expression: "Don't worry about it.", usage: "安慰对方不用担心。", example: "Don't worry about it. We can fix it." }
+      ],
+      [
+        { expression: "That reminds me.", usage: "表示某事让自己想起另一件事。", example: "That reminds me. I need to call Mum." },
+        { expression: "By the way,...", usage: "顺便引出新话题。", example: "By the way, have you finished the book?" },
+        { expression: "As far as I know,...", usage: "说明根据自己了解的情况。", example: "As far as I know, the shop opens at nine." }
+      ],
+      [
+        { expression: "I'm just kidding.", usage: "说明刚才只是在开玩笑。", example: "I'm just kidding. Your drawing is lovely." },
+        { expression: "You must be joking.", usage: "表示惊讶或不相信。", example: "You won twice? You must be joking!" },
+        { expression: "What a surprise!", usage: "表达意外和惊喜。", example: "You're here early. What a surprise!" }
+      ],
+      [
+        { expression: "Make yourself at home.", usage: "招待客人，让对方放松。", example: "Come in and make yourself at home." },
+        { expression: "Help yourself.", usage: "请对方自行取用食物或物品。", example: "Help yourself to some fruit." },
+        { expression: "Thanks for having me.", usage: "感谢对方招待。", example: "Dinner was wonderful. Thanks for having me." }
+      ],
+      [
+        { expression: "Could I have...?", usage: "礼貌点餐或索取物品。", example: "Could I have a glass of water?" },
+        { expression: "Anything else?", usage: "询问是否还需要其他东西。", example: "Here is your coffee. Anything else?" },
+        { expression: "That's all, thanks.", usage: "表示不再需要其他东西。", example: "That's all, thanks. Could I have the bill?" }
+      ],
+      [
+        { expression: "How long does it take?", usage: "询问所需时间。", example: "How long does it take to walk there?" },
+        { expression: "Which way is...?", usage: "询问方向。", example: "Which way is the train station?" },
+        { expression: "Is this seat taken?", usage: "询问座位是否有人。", example: "Excuse me, is this seat taken?" }
+      ],
+      [
+        { expression: "I'm running late.", usage: "表示自己快迟到了。", example: "I'm running late. Please start without me." },
+        { expression: "Let's call it a day.", usage: "提议今天先做到这里。", example: "We have finished enough. Let's call it a day." },
+        { expression: "Keep up the good work.", usage: "鼓励对方继续保持。", example: "Your English is improving. Keep up the good work." }
+      ],
+      [
+        { expression: "It was nice meeting you.", usage: "初次见面结束时的礼貌告别。", example: "It was nice meeting you. Have a safe trip." },
+        { expression: "Please keep in touch.", usage: "希望以后保持联系。", example: "Please keep in touch when you move away." },
+        { expression: "Have a safe journey.", usage: "祝对方旅途平安。", example: "Have a safe journey and message me when you arrive." }
+      ]
+    );
+
+    lessonBank.C.push(
+      { pattern: "Would you mind + verb-ing?", explanation: "用来非常礼貌地提出请求。", examples: ["Would you mind closing the window?", "Would you mind waiting for a minute?", "Would you mind speaking more slowly?"] },
+      { pattern: "I used to + verb", explanation: "用来描述过去经常做、现在不再做的事。", examples: ["I used to walk to school.", "I used to live near the station.", "I used to drink coffee every morning."] },
+      { pattern: "It takes + time + to + verb", explanation: "用来说明完成某事需要多长时间。", examples: ["It takes ten minutes to get there.", "It takes time to learn a language.", "It takes an hour to cook this dish."] },
+      { pattern: "The more..., the more...", explanation: "用来表达两个变化之间的关系。", examples: ["The more you practise, the more confident you become.", "The more I read, the more I learn.", "The earlier we leave, the sooner we arrive."] },
+      { pattern: "If I were you, I would...", explanation: "用来礼貌地给别人建议。", examples: ["If I were you, I would ask the teacher.", "If I were you, I would take an umbrella.", "If I were you, I would get some rest."] },
+      { pattern: "Have you ever + past participle?", explanation: "用来询问对方是否有过某种经历。", examples: ["Have you ever visited London?", "Have you ever tried Korean food?", "Have you ever lost your keys?"] },
+      { pattern: "I am looking forward to + noun / verb-ing", explanation: "用来表达期待某事。", examples: ["I am looking forward to the weekend.", "I am looking forward to seeing you.", "I am looking forward to starting the course."] },
+      { pattern: "It is important to + verb", explanation: "用来强调做某事的重要性。", examples: ["It is important to drink enough water.", "It is important to listen carefully.", "It is important to arrive on time."] },
+      { pattern: "I would rather + verb", explanation: "用来表达更愿意做某事。", examples: ["I would rather walk than wait.", "I would rather eat at home.", "I would rather study in the morning."] },
+      { pattern: "Not only..., but also...", explanation: "用来连接两个并列的优点或事实。", examples: ["She is not only kind but also patient.", "The book is not only useful but also interesting.", "He can not only cook but also bake."] },
+      { pattern: "Could you tell me + question word...?", explanation: "用来礼貌地询问信息。", examples: ["Could you tell me where the station is?", "Could you tell me when the shop closes?", "Could you tell me how this works?"] },
+      { pattern: "I have been + verb-ing", explanation: "用来描述从过去持续到现在的活动。", examples: ["I have been studying for an hour.", "I have been waiting since nine.", "I have been learning English for two years."] },
+      { pattern: "There is no need to + verb", explanation: "用来表示没有必要做某事。", examples: ["There is no need to hurry.", "There is no need to bring food.", "There is no need to worry about it."] }
+    );
+
     const modeLabels = {
       A: "Vocabulary",
       B: "Common Expressions",
@@ -1239,8 +1489,8 @@
     const today = new Date();
     const todayKey = formatDateKey(today);
     const mode = pickDailyMode(todayKey);
-    const lessonSetIndex = getModeOccurrenceIndex(mode, today);
-    const lessonSet = getLessonSet(mode, lessonSetIndex);
+    let lessonSetIndex = getModeOccurrenceIndex(mode, today);
+    let lessonSet = getLessonSet(mode, lessonSetIndex);
 
     const lessonGrid = document.getElementById("lessonGrid");
     const dateText = document.getElementById("dateText");
@@ -1256,6 +1506,8 @@
     const progressStatus = document.getElementById("progressStatus");
     const progressFill = document.getElementById("progressFill");
     const progressTrack = document.querySelector(".progress-track");
+    const nextBatchWrap = document.getElementById("nextBatchWrap");
+    const nextBatch = document.getElementById("nextBatch");
     const lessonSource = document.getElementById("lessonSource");
     const startReview = document.getElementById("startReview");
     const reviewContent = document.getElementById("reviewContent");
@@ -1306,6 +1558,20 @@
     startReview.addEventListener("click", startReviewSession);
     exportData.addEventListener("click", exportBackup);
     importData.addEventListener("click", () => importFile.click());
+    nextBatch.addEventListener("click", () => {
+      const selection = selectNextLessonSet(mode, lessonSetIndex, getHistory());
+      if (!selection) {
+        nextBatch.hidden = true;
+        nextBatchWrap.hidden = true;
+        showToast("No unseen batches remain — review your learned words instead.");
+        return;
+      }
+      lessonSetIndex = selection.index;
+      lessonSet = getLessonSet(mode, lessonSetIndex);
+      renderLesson();
+      window.scrollTo({ top: lessonGrid.offsetTop - 140, behavior: "smooth" });
+      showToast(`New ${modeLabels[mode].toLowerCase()} batch ready.`);
+    });
     importFile.addEventListener("change", importBackup);
     copyProfileLink.addEventListener("click", copyUserLink);
     changeProfile.addEventListener("click", logoutProfile);
@@ -1589,6 +1855,21 @@
       progressText.textContent = completed ? "太棒了，今天的内容全部学完！" : "今天学完这些就很好";
       progressFill.style.width = `${percent}%`;
       progressTrack.setAttribute("aria-valuenow", String(percent));
+      nextBatch.hidden = !completed;
+      nextBatchWrap.hidden = !completed;
+    }
+
+    function selectNextLessonSet(currentMode, currentIndex, history) {
+      const sets = lessonBank[currentMode];
+      const learnedFavoriteKeys = new Set(history.map((entry) => entry.favoriteKey).filter(Boolean));
+      for (let offset = 1; offset <= sets.length; offset += 1) {
+        const index = (currentIndex + offset) % sets.length;
+        const items = getDisplayItems(currentMode, sets[index]);
+        if (items.every((item) => !learnedFavoriteKeys.has(item.favoriteKey))) {
+          return { index };
+        }
+      }
+      return null; // No unseen batches remain.
     }
 
     function updateStreak(dateKey) {

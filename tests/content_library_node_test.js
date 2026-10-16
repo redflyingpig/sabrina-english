@@ -83,6 +83,12 @@ function testLegacyAndExhaustion() {
     : entry);
   const nextReview = SabrinaContent.selectBatch({ items, history: reviewedHistory, batchSize: 1, seed: "x", cursor: 0 });
   assert.equal(nextReview.items[0].id, "v1:world");
+  assert.equal(SabrinaContent.legacyIdentity({ mode: "Vocabulary", title: "colour" }), "vocabulary:color");
+
+  const seven = ["a", "b", "c", "d", "e", "f", "g"].map((word) => item(`v1:${word}`, word));
+  const wrapped = SabrinaContent.selectBatch({ items: seven, history: [], batchSize: 5, seed: "tail", cursor: 6 });
+  assert.equal(wrapped.items.length, 5);
+  assert.equal(new Set(wrapped.items.map((entry) => entry.id)).size, 5);
 }
 
 (async () => {

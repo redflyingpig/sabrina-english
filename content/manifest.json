@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.16-2",
+  "version": "2026.10.16-3",
   "files": {
     "vocabulary-a1.json": {
       "kind": "vocabulary",
@@ -19,7 +19,7 @@
     "vocabulary-b2.json": {
       "kind": "vocabulary",
       "count": 800,
-      "sha256": "c2a0a6ad4768c83eab0c187184aa11cb4d781ac5c74c130256ad9b4105700ad4"
+      "sha256": "fb685b219809109ba57e221d3e529f07b05417393cb76649f09cebbe227fe1a3"
     },
     "expressions.json": {
       "kind": "expressions",

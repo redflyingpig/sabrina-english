@@ -228,7 +228,7 @@ class ProductionContentTest(unittest.TestCase):
         words = set()
         for level in ("A1", "A2", "B1", "B2"):
             words.update(row["word"] for row in self.load(f"vocabulary-{level.lower()}.json"))
-        self.assertTrue({"bastard", "eric", "phil", "shit"}.isdisjoint(words))
+        self.assertTrue({"bastard", "bullshit", "crap", "eric", "fuck", "fucked", "fucker", "fucking", "phil", "shit"}.isdisjoint(words))
         for left, right in (("color", "colour"), ("center", "centre"), ("labor", "labour"), ("organize", "organise")):
             self.assertFalse(left in words and right in words, (left, right))
 

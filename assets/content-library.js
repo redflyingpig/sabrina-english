@@ -6,13 +6,20 @@
   "use strict";
 
   function normalize(value) {
-    return String(value || "")
+    const normalized = String(value || "")
       .normalize("NFKD")
       .toLowerCase()
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, " ")
       .trim()
       .replace(/\s+/g, " ");
+    const aliases = {
+      centre: "center", colour: "color", favour: "favor", favourite: "favorite",
+      honour: "honor", labour: "labor", neighbour: "neighbor", organise: "organize",
+      organised: "organized", organising: "organizing", realise: "realize",
+      recognise: "recognize", theatre: "theater", travelling: "traveling",
+    };
+    return aliases[normalized] || normalized;
   }
 
   function hashSeed(value) {
@@ -88,18 +95,13 @@
     if (unseen.length) {
       const start = ordered.length ? Math.max(0, Number(cursor) || 0) % ordered.length : 0;
       const batch = [];
-      let position = start;
-      while (position < ordered.length && batch.length < size) {
+      let visited = 0;
+      while (visited < ordered.length && batch.length < size) {
+        const position = (start + visited) % ordered.length;
         if (isUnseen(ordered[position])) batch.push(ordered[position]);
-        position += 1;
+        visited += 1;
       }
-      if (batch.length) return { items: batch, nextCursor: position, exhausted: false };
-      let wrappedPosition = 0;
-      while (wrappedPosition < start && batch.length < size) {
-        if (isUnseen(ordered[wrappedPosition])) batch.push(ordered[wrappedPosition]);
-        wrappedPosition += 1;
-      }
-      return { items: batch, nextCursor: wrappedPosition % ordered.length, exhausted: false };
+      return { items: batch, nextCursor: (start + visited) % ordered.length, exhausted: false };
     }
 
     const lastSeen = new Map();

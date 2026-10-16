@@ -9,6 +9,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import sqlite3
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -27,9 +28,23 @@ CONTENT_SECURITY_POLICY = (
     "default-src 'self'; "
     "script-src 'self' 'unsafe-inline'; "
     "style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data:; "
+    "img-src 'self' data: blob:; "
     "connect-src 'self'; "
     "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+)
+# The wordbook is a scanned book: it lives in the data directory (never in git)
+# and is only served to signed-in profiles.
+WORDBOOK_PAGE_PATTERN = re.compile(r"^p\d{3}\.jpg$")
+WORDBOOK_MAX_ENTRIES = 10000
+WORDBOOK_KEY_MAX_LENGTH = 120
+STATIC_FILES = frozenset(
+    {
+        "index.html",
+        "assets/content-library.js",
+        "assets/wordbook.js",
+        "assets/wordbook.css",
+        "content/manifest.json",
+    }
 )
 
 
@@ -51,6 +66,7 @@ class SabrinaHTTPServer(ThreadingHTTPServer):
             os.chmod(self.data_dir, 0o700)
         except OSError:
             pass
+        self.wordbook_dir = self.data_dir / "wordbook"
         self.store = Store(self.data_dir / "sabrina.db")
         self.store.initialize()
         self.login_failures: Dict[Tuple[str, str], list] = {}
@@ -216,6 +232,10 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             self._health()
         elif path == "/api/profile":
             self._get_profile()
+        elif path == "/api/wordbook/data":
+            self._wordbook_data()
+        elif path.startswith("/api/wordbook/pages/"):
+            self._wordbook_page(path[len("/api/wordbook/pages/") :])
         elif path.startswith("/api/"):
             self._error(404, "not_found", "API endpoint not found")
         else:
@@ -349,6 +369,50 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             return
         self._send_json(200, saved)
 
+    def _wordbook_data(self) -> None:
+        _, profile = self._authenticated()
+        if profile is None:
+            return
+        self._send_wordbook_file(self.server.wordbook_dir / "data.json", "application/json; charset=utf-8")
+
+    def _wordbook_page(self, name: str) -> None:
+        _, profile = self._authenticated()
+        if profile is None:
+            return
+        if not WORDBOOK_PAGE_PATTERN.match(name):
+            self._error(404, "not_found", "File not found")
+            return
+        self._send_wordbook_file(self.server.wordbook_dir / "pages" / name, "image/jpeg")
+
+    def _send_wordbook_file(self, path: Path, content_type: str) -> None:
+        try:
+            body = path.read_bytes()
+        except OSError:
+            self._error(404, "wordbook_unavailable", "Wordbook content is not installed")
+            return
+        # Signed-in content: shared caches must not keep it, and the browser must
+        # revalidate every time so a signed-out tab cannot read it from cache.
+        # Auth runs before this, so a 304 is only ever sent to a valid session.
+        etag = '"' + hashlib.sha256(body).hexdigest() + '"'
+        cache_control = "private, no-cache"
+        if self.headers.get("If-None-Match") == etag:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", cache_control)
+            for name, value in self._security_headers().items():
+                self.send_header(name, value)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", cache_control)
+        for name, value in self._security_headers().items():
+            self.send_header(name, value)
+        self.end_headers()
+        self.wfile.write(body)
+
     def _client_ip(self) -> str:
         peer = self.client_address[0]
         if peer not in {"127.0.0.1", "::1"}:
@@ -383,10 +447,32 @@ class SabrinaHandler(BaseHTTPRequestHandler):
                 return False
             if not isinstance(last_date, str):
                 return False
+        if "wordbook" in state and not SabrinaHandler._valid_wordbook(state["wordbook"]):
+            return False
         if "version" in state and (not isinstance(state["version"], int) or isinstance(state["version"], bool)):
             return False
         if "updatedAt" in state and not isinstance(state["updatedAt"], str):
             return False
+        return True
+
+    @staticmethod
+    def _valid_wordbook(wordbook: Any) -> bool:
+        # {"entries": {"<day>:<word>": {"level": 0-3, "at": "<iso time>"}}}
+        if not isinstance(wordbook, dict):
+            return False
+        entries = wordbook.get("entries", {})
+        if not isinstance(entries, dict) or len(entries) > WORDBOOK_MAX_ENTRIES:
+            return False
+        for key, entry in entries.items():
+            if not key or len(key) > WORDBOOK_KEY_MAX_LENGTH:
+                return False
+            if not isinstance(entry, dict):
+                return False
+            level = entry.get("level")
+            if not isinstance(level, int) or isinstance(level, bool) or not 0 <= level <= 3:
+                return False
+            if not isinstance(entry.get("at", ""), str):
+                return False
         return True
 
     @staticmethod
@@ -408,7 +494,7 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             self._error(404, "not_found", "File not found")
             return
         relative = decoded.lstrip("/") or "index.html"
-        approved = {"index.html", "assets/content-library.js", "content/manifest.json"}
+        approved = set(STATIC_FILES)
         approved.update(
             f"content/{name}" for name in self.server.approved_content_files
         )

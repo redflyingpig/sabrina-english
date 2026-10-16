@@ -151,6 +151,28 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn('class="small-btn" id="importData"', backup_section)
         self.assertNotIn('class="tool-grid"', backup_section)
 
+    def test_wordbook_module_is_wired_into_the_page(self):
+        self.assertIn('href="/assets/wordbook.css"', self.html)
+        self.assertIn('src="/assets/wordbook.js"', self.html)
+        self.assertIn('id="wordbookView"', self.html)
+        self.assertIn('href="#wordbook"', self.html)
+        self.assertIn("SabrinaWordbook.mount(wordbookView", self.html)
+
+    def test_wordbook_progress_is_part_of_profile_sync_and_backup(self):
+        self.assertIn("getWordbook()", self.function_body("getProfileState"))
+        self.assertIn("WORDBOOK_KEY", self.function_body("applyProfileState"))
+        self.assertIn("SabrinaWordbook.merge(cloudState.wordbook, localState.wordbook)", self.function_body("mergeProfileStates"))
+        self.assertIn("WORDBOOK_KEY", self.function_body("hasLocalProfileData"))
+        self.assertIn('WORDBOOK_KEY = profileStorageKey("wordbook")', self.function_body("setActiveProfile"))
+        self.assertIn("wordbook: getWordbook()", self.function_body("exportBackup"))
+        self.assertIn("payload.wordbook", self.function_body("importBackup"))
+
+    def test_wordbook_content_needs_a_session(self):
+        self.assertIn("Authorization: `Bearer ${sessionToken}`", self.html)
+        self.assertNotIn("/wordbook/pages/", self.html.replace("/api/wordbook/pages/", ""))
+        self.assertIn("refreshWordbookForSession()", self.function_body("logoutProfile"))
+        self.assertIn("refreshWordbookForSession()", self.function_body("handleExpiredSession"))
+
 
 if __name__ == "__main__":
     unittest.main()

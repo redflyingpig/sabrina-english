@@ -834,6 +834,7 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="/assets/wordbook.css">
 </head>
 <body>
   <main class="page">
@@ -850,7 +851,12 @@
         </div>
       </div>
 
-      <header class="hero">
+      <nav class="app-switch" aria-label="学习模块">
+        <a href="#today" data-switch="today">今日一课</a>
+        <a href="#wordbook" data-switch="wordbook">10天单词书</a>
+      </nav>
+
+      <header class="hero" data-view="today">
         <div>
           <p class="eyebrow">Today’s English</p>
           <h1>Sabrina English</h1>
@@ -872,7 +878,7 @@
         </div>
       </header>
 
-      <section class="panel" aria-labelledby="todayTitle">
+      <section class="panel" data-view="today" aria-labelledby="todayTitle">
         <div class="section-head">
           <div class="section-title">
             <span class="badge" id="modeBadge">A</span>
@@ -905,7 +911,7 @@
         <div class="lesson-grid" id="lessonGrid"></div>
       </section>
 
-      <section class="panel" aria-labelledby="reviewTitle">
+      <section class="panel" data-view="today" aria-labelledby="reviewTitle">
         <div class="section-head">
           <div class="section-title">
             <span class="badge">↻</span>
@@ -918,7 +924,7 @@
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="favoritesTitle">
+      <section class="panel" data-view="today" aria-labelledby="favoritesTitle">
         <div class="section-head">
           <div class="section-title">
             <span class="badge">★</span>
@@ -929,7 +935,7 @@
         <div id="favoritesContent"></div>
       </section>
 
-      <section class="panel" aria-labelledby="historyTitle">
+      <section class="panel" data-view="today" aria-labelledby="historyTitle">
         <div class="section-head">
           <div class="section-title">
             <span class="badge">✓</span>
@@ -940,7 +946,7 @@
         <div id="historyContent"></div>
       </section>
 
-      <section class="panel" aria-labelledby="backupTitle">
+      <section class="panel" data-view="today" aria-labelledby="backupTitle">
         <div class="section-head">
           <div class="section-title">
             <span class="badge">⋯</span>
@@ -954,6 +960,8 @@
           <span class="sync-state">JSON 学习记录备份</span>
         </div>
       </section>
+
+      <div class="wb-view" id="wordbookView" data-view="wordbook" hidden></div>
     </div>
   </main>
 
@@ -984,6 +992,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="/assets/content-library.js"></script>
+  <script src="/assets/wordbook.js"></script>
   <script>
     const LEGACY_STORAGE_KEY = "sabrinaEnglishLearnedHistory";
     const LEGACY_FAVORITES_KEY = "sabrinaEnglishFavorites";
@@ -998,6 +1007,7 @@
     let FAVORITES_KEY = profileStorageKey("favorites");
     let STREAK_KEY = profileStorageKey("streak");
     let PROFILE_UPDATED_KEY = profileStorageKey("updatedAt");
+    let WORDBOOK_KEY = profileStorageKey("wordbook");
     let syncTimer = null;
     let syncInFlight = false;
     let syncPending = false;
@@ -1136,6 +1146,9 @@
       migrateLegacyData();
       await loadProfileFromServer();
       await loadContentLibrary();
+      // The wordbook may have rendered from this device's cache before the
+      // server state arrived; redraw it once with the synced progress.
+      refreshWordbookForSession();
     }
 
     async function loadContentLibrary() {
@@ -1204,6 +1217,7 @@
         await loadProfileFromServer();
         lessonSetIndex = getModeOccurrenceIndex(mode, today) * batchSizes[mode];
         await loadContentLibrary();
+        refreshWordbookForSession();
       } catch (error) {
         showToast(error.status === 429 ? "尝试次数太多，请稍后再试。" : "用户名或 PIN 不正确。");
         profilePinInput.select();
@@ -1689,7 +1703,8 @@
         exportedAt: new Date().toISOString(),
         history: getHistory(),
         favorites: getFavorites(),
-        streak: getStreak()
+        streak: getStreak(),
+        wordbook: getWordbook()
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -1718,6 +1733,9 @@
         localStorage.setItem(FAVORITES_KEY, JSON.stringify(payload.favorites));
         if (payload.streak && typeof payload.streak === "object") {
           localStorage.setItem(STREAK_KEY, JSON.stringify(payload.streak));
+        }
+        if (payload.wordbook && typeof payload.wordbook === "object") {
+          localStorage.setItem(WORDBOOK_KEY, JSON.stringify(SabrinaWordbook.normalizeState(payload.wordbook)));
         }
         renderLesson();
         renderHistory();
@@ -1759,6 +1777,7 @@
       FAVORITES_KEY = profileStorageKey("favorites");
       STREAK_KEY = profileStorageKey("streak");
       PROFILE_UPDATED_KEY = profileStorageKey("updatedAt");
+      WORDBOOK_KEY = profileStorageKey("wordbook");
     }
 
     function showLoginDialog() {
@@ -1780,6 +1799,7 @@
       sessionToken = null;
       profileHydrated = false;
       profileBar.hidden = true;
+      refreshWordbookForSession();
       showLoginDialog();
       try {
         if (logoutToken) {
@@ -1796,6 +1816,7 @@
       sessionToken = null;
       profileHydrated = false;
       syncState.textContent = "登录已过期 · 本机记录仍保留";
+      refreshWordbookForSession();
       showLoginDialog();
     }
 
@@ -1853,8 +1874,17 @@
         updatedAt: localStorage.getItem(PROFILE_UPDATED_KEY) || new Date().toISOString(),
         history: getHistory(),
         favorites: getFavorites(),
-        streak: getStreak()
+        streak: getStreak(),
+        ...withWordbook(getWordbook())
       };
+    }
+
+    function getWordbook() {
+      try {
+        return SabrinaWordbook.normalizeState(JSON.parse(localStorage.getItem(WORDBOOK_KEY) || "null"));
+      } catch {
+        return SabrinaWordbook.emptyState();
+      }
     }
 
     function applyProfileState(state) {
@@ -1869,6 +1899,9 @@
       }
       if (state.streak && typeof state.streak === "object") {
         localStorage.setItem(STREAK_KEY, JSON.stringify(state.streak));
+      }
+      if (state.wordbook && typeof state.wordbook === "object") {
+        localStorage.setItem(WORDBOOK_KEY, JSON.stringify(SabrinaWordbook.normalizeState(state.wordbook)));
       }
     }
 
@@ -1940,7 +1973,8 @@
     function hasLocalProfileData() {
       return localStorage.getItem(STORAGE_KEY) !== null ||
         localStorage.getItem(FAVORITES_KEY) !== null ||
-        localStorage.getItem(STREAK_KEY) !== null;
+        localStorage.getItem(STREAK_KEY) !== null ||
+        localStorage.getItem(WORDBOOK_KEY) !== null;
     }
 
     function mergeProfileStates(cloudState, localState) {
@@ -1968,8 +2002,15 @@
         updatedAt: [cloudState.updatedAt, localState.updatedAt].filter(Boolean).sort().pop() || new Date().toISOString(),
         history: [...historyByKey.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
         favorites: [...favoritesByKey.values()],
-        streak
+        streak,
+        ...withWordbook(SabrinaWordbook.merge(cloudState.wordbook, localState.wordbook))
       };
+    }
+
+    // Profiles that never opened the wordbook keep their old state shape, so an
+    // unchanged profile does not look "different" and trigger a needless save.
+    function withWordbook(wordbook) {
+      return Object.keys(wordbook.entries).length ? { wordbook } : {};
     }
 
     function scheduleProfileSync() {
@@ -2107,6 +2148,84 @@
       }
       return hash;
     }
+
+    // ---------- 10天单词书 ----------
+    const wordbookView = document.getElementById("wordbookView");
+    const wordbook = SabrinaWordbook.mount(wordbookView, {
+      apiRequest,
+      async fetchBlob(path) {
+        const response = await fetch(path, { headers: { Authorization: `Bearer ${sessionToken}` } });
+        if (response.status === 401) handleExpiredSession();
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+        return response.blob();
+      },
+      getState: getWordbook,
+      setLevel(day, word, level) {
+        const state = getWordbook();
+        state.entries[SabrinaWordbook.entryKey(day, word.w)] = { level, at: new Date().toISOString() };
+        localStorage.setItem(WORDBOOK_KEY, JSON.stringify(state));
+        // 在单词书里学习也算今天学过，连续天数照常累计。
+        if (level > 0) updateStreak(todayKey);
+        renderStreak();
+        scheduleProfileSync();
+      },
+      addToReview(day, word) {
+        const favoriteKey = `W:${word.w}`;
+        const favorites = getFavorites();
+        if (favorites.some((entry) => entry.favoriteKey === favoriteKey)) return;
+        favorites.unshift({
+          favoriteKey,
+          mode: `单词书 Day ${day.day}`,
+          title: word.w,
+          detail: SabrinaWordbook.sensesText(word),
+          phonetic: "",
+          examples: [],
+          speech: word.w
+        });
+        localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+        renderFavorites();
+        scheduleProfileSync();
+      },
+      speak: speakEnglish,
+      toast: showToast,
+      isSignedIn: () => Boolean(sessionToken && activeProfile),
+      requestLogin: showLoginDialog
+    });
+
+    function parseRoute() {
+      const parts = window.location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+      if (parts[0] !== "wordbook") return { view: "today" };
+      return parts[1] === "day"
+        ? { view: "wordbook", day: Number(parts[2]), tab: parts[3] }
+        : { view: "wordbook" };
+    }
+
+    function renderRoute() {
+      const route = parseRoute();
+      document.querySelectorAll("[data-view]").forEach((element) => {
+        element.hidden = element.dataset.view !== route.view;
+      });
+      document.querySelectorAll("[data-switch]").forEach((link) => {
+        if (link.dataset.switch === route.view) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+      });
+      document.title = route.view === "wordbook" ? "10天单词书 · Sabrina English" : "Sabrina English Daily Lesson";
+      if (route.view === "wordbook") wordbook.render(route);
+    }
+
+    // Only session changes rebuild the wordbook; background syncs must not
+    // interrupt a flashcard or quiz that is in progress.
+    function refreshWordbookForSession() {
+      wordbook.reset();
+      renderRoute();
+    }
+
+    window.addEventListener("hashchange", () => {
+      window.speechSynthesis?.cancel();
+      renderRoute();
+      window.scrollTo({ top: 0 });
+    });
+    renderRoute();
 
     let toastTimer = null;
     function showToast(message) {

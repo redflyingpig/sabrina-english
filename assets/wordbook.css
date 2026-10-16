@@ -1,0 +1,314 @@
+/* 10天单词书模块。沿用 index.html 里的变量（--rose / --gold / --mint / --line 等）。 */
+
+.app-switch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  justify-self: start;
+}
+
+.app-switch a {
+  padding: 8px 16px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.app-switch a[aria-current="page"] {
+  color: #fffaf2;
+  background: linear-gradient(135deg, var(--gold), var(--rose));
+}
+
+.wb-pad { padding: 16px 24px 0; }
+.wb-center { justify-content: center; text-align: center; }
+.wb-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.wb-sub { color: var(--muted); line-height: 1.55; }
+.wb-pos { color: var(--gold); font-style: italic; font-size: 0.86em; margin-right: 3px; }
+a.primary-btn, a.secondary-btn { text-decoration: none; }
+
+.wb-signin { padding: 28px; display: grid; gap: 12px; justify-items: start; }
+.wb-signin .empty { padding: 0; }
+
+/* 闯关路线 */
+.wb-hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  align-items: end;
+  padding: 24px;
+}
+.wb-hero h2 { font-size: clamp(1.4rem, 3.4vw, 2rem); margin: 4px 0 8px; }
+.wb-stats { min-width: 240px; }
+
+.wb-path {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  position: relative;
+}
+
+.wb-path::before {
+  content: "";
+  position: absolute;
+  left: 31px;
+  top: 24px;
+  bottom: 24px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.wb-stop-link {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 18px 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.6);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.wb-stop-link:hover { transform: translateY(-1px); border-color: rgba(217, 144, 47, 0.42); }
+
+.wb-stop-dot {
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--cream);
+  color: var(--muted);
+  font-weight: 900;
+  z-index: 1;
+}
+
+.wb-stop-body { display: grid; gap: 4px; }
+.wb-stop-day { color: var(--faint); font-size: 0.74rem; font-weight: 800; letter-spacing: 0.08em; }
+.wb-stop-body strong { font-size: 1.08rem; }
+.wb-stop-meta { color: var(--muted); font-size: 0.86rem; }
+.wb-track { height: 8px; margin: 4px 0 2px; }
+
+.wb-current .wb-stop-link { border-color: rgba(217, 144, 47, 0.5); background: var(--panel-strong); box-shadow: var(--soft-shadow); }
+.wb-current .wb-stop-dot { color: #fffaf2; border-color: transparent; background: linear-gradient(135deg, var(--gold), var(--rose)); }
+.wb-current .wb-stop-day { color: var(--rose); }
+.wb-done .wb-stop-dot { color: #fffaf2; border-color: transparent; background: var(--mint); }
+.wb-done .wb-stop-day { color: var(--mint); }
+.wb-stop.wb-locked .wb-stop-link { opacity: 0.62; }
+
+/* 章节 */
+.wb-back { color: var(--muted); font-size: 0.84rem; font-weight: 700; text-decoration: none; }
+.wb-back:hover { color: var(--rose); }
+
+.wb-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wb-tabs a {
+  padding: 10px 14px;
+  margin-bottom: -1px;
+  border-bottom: 3px solid transparent;
+  color: var(--muted);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.wb-tabs a[aria-current="page"] { color: var(--text); border-color: var(--rose); }
+.wb-body { padding-bottom: 24px; }
+
+.wb-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px 24px 0;
+}
+
+.wb-page-img {
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  cursor: zoom-in;
+}
+
+.wb-page-img.loaded { min-height: 0; }
+.wb-page-img img { display: block; width: 100%; border-radius: 10px; }
+
+.wb-words { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; align-content: start; }
+
+.wb-word {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.wb-word.wb-lv-1 { border-left-color: var(--rose); }
+.wb-word.wb-lv-2 { border-left-color: var(--gold); }
+.wb-word.wb-lv-3 { border-left-color: var(--mint); }
+.wb-word-copy { display: grid; min-width: 0; }
+.wb-word-copy span { color: var(--muted); font-size: 0.9rem; }
+.wb-speak { width: 38px; min-height: 38px; flex-basis: 38px; }
+.wb-marks { display: flex; gap: 4px; }
+.wb-marks .small-btn { min-height: 30px; padding: 0 9px; }
+.wb-mark-known[aria-pressed="true"] { color: #fff; border-color: var(--mint); background: var(--mint); }
+.wb-mark-unknown[aria-pressed="true"] { color: #fff; border-color: var(--rose); background: var(--rose); }
+
+/* 闪卡 / 选择题 / 拼写 */
+.wb-stage { max-width: 600px; margin: 0 auto; padding: 18px 24px 0; }
+.wb-count { color: var(--muted); text-align: center; margin-bottom: 10px; font-size: 0.9rem; }
+
+.wb-flash {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 260px;
+  margin-bottom: 14px;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  perspective: 1200px;
+}
+
+.wb-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  border: 1px solid rgba(217, 144, 47, 0.28);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 249, 239, 0.96));
+  box-shadow: var(--shadow);
+  backface-visibility: hidden;
+  transition: transform 420ms ease;
+}
+
+.wb-face-front strong { font-size: clamp(2rem, 7vw, 2.8rem); letter-spacing: -0.02em; word-break: break-word; }
+.wb-face-front small { color: var(--faint); }
+.wb-face-back { transform: rotateY(180deg); font-size: 1.2rem; }
+.wb-flash.flipped .wb-face-front { transform: rotateY(-180deg); }
+.wb-flash.flipped .wb-face-back { transform: rotateY(0deg); }
+
+.wb-rate { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+.wb-rate .secondary-btn { min-height: 50px; }
+.wb-rate-1 { color: var(--rose) !important; }
+.wb-rate-2 { color: var(--gold) !important; }
+.wb-rate-3 { color: #4f9b77 !important; }
+.wb-rate kbd { font: inherit; font-size: 0.72rem; color: var(--faint); margin-left: 4px; }
+
+.wb-question {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 26px 20px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(217, 144, 47, 0.28);
+  border-radius: 24px;
+  background: var(--panel-strong);
+  text-align: center;
+}
+
+.wb-question small { color: var(--muted); }
+.wb-question strong { font-size: clamp(1.6rem, 6vw, 2.3rem); }
+.wb-question strong.wb-question-zh, .wb-question strong:has(.wb-pos) { font-size: 1.3rem; }
+
+.wb-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.wb-choice {
+  min-height: 56px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-choice:hover:not(:disabled) { border-color: rgba(217, 144, 47, 0.5); }
+.wb-choice.right { border-color: var(--mint); background: rgba(104, 185, 145, 0.16); }
+.wb-choice.wrong { border-color: var(--rose); background: rgba(236, 127, 117, 0.14); }
+.wb-feedback { min-height: 26px; margin: 12px 0; text-align: center; font-weight: 700; }
+.wb-feedback.ok { color: #4f9b77; }
+.wb-feedback.no { color: var(--rose); }
+
+.wb-mask { font-family: ui-monospace, Menlo, monospace; font-size: 1.3rem; letter-spacing: 0.3em; color: var(--muted); }
+.wb-spell { display: grid; gap: 8px; text-align: center; }
+
+.wb-input {
+  width: 100%;
+  padding: 14px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.wb-input:focus { outline: none; border-color: var(--gold); }
+
+.wb-result { display: grid; gap: 12px; padding: 26px 20px; text-align: center; border-radius: 24px; background: var(--panel-strong); }
+.wb-score { font-size: 3rem; font-weight: 900; color: var(--rose); }
+.wb-wrong { max-width: 440px; margin: 0 auto; text-align: left; }
+
+.wb-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; padding: 18px 24px 0; }
+.wb-gallery figure { margin: 0; }
+.wb-gallery figcaption { margin-top: 6px; color: var(--muted); font-size: 0.86rem; text-align: center; }
+
+.wb-zoom { max-width: min(96vw, 900px); max-height: 96vh; padding: 0; border: 0; border-radius: 16px; background: #fff; }
+.wb-zoom::backdrop { background: rgba(52, 35, 24, 0.7); }
+.wb-zoom img { display: block; max-width: 100%; max-height: 92vh; }
+.wb-zoom-close { position: absolute; top: 8px; right: 8px; background: rgba(255, 255, 255, 0.9); }
+
+@media (max-width: 760px) {
+  .wb-hero { grid-template-columns: 1fr; padding: 20px; }
+  .wb-stats { min-width: 0; }
+  .wb-page { grid-template-columns: 1fr; padding: 14px 14px 0; }
+  .wb-tabs { padding: 0 10px; }
+  .wb-tabs a { padding: 10px; }
+  .wb-pad, .wb-stage, .wb-gallery { padding-left: 14px; padding-right: 14px; }
+  .wb-choices { grid-template-columns: 1fr; }
+  .wb-word { grid-template-columns: auto 1fr; }
+  .wb-marks { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-face, .wb-stop-link { transition: none; }
+}
+
+/* 切换视图时隐藏另一半；页面里的 display 规则会盖过 hidden 属性。 */
+[data-view][hidden],
+.wb-view[hidden] { display: none !important; }
+.wb-view { display: grid; gap: 18px; }

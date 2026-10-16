@@ -124,6 +124,107 @@ class AppTest(unittest.TestCase):
             self.assertEqual(404, status, path)
             self.assertEqual("not_found", body["error"], path)
 
+    def install_wordbook(self):
+        wordbook = self.data_dir / "wordbook"
+        (wordbook / "pages").mkdir(parents=True)
+        (wordbook / "data.json").write_text('[{"day":1,"words":[]}]', encoding="utf-8")
+        (wordbook / "pages" / "p012.jpg").write_bytes(b"fake-jpeg-bytes")
+
+    def test_wordbook_requires_login(self):
+        self.install_wordbook()
+        for path in ("/api/wordbook/data", "/api/wordbook/pages/p012.jpg"):
+            status, _, body = self.request("GET", path)
+            self.assertEqual(401, status, path)
+            self.assertEqual("unauthorized", body["error"], path)
+
+    def test_wordbook_serves_data_and_pages_to_signed_in_profile(self):
+        self.install_wordbook()
+        token = self.login("Sabrina", "234567")
+        status, headers, body = self.request("GET", "/api/wordbook/data", token=token)
+        self.assertEqual(200, status)
+        self.assertEqual([{"day": 1, "words": []}], body)
+        self.assertIn("private", headers["Cache-Control"])
+
+        status, headers, body = self.request("GET", "/api/wordbook/pages/p012.jpg", token=token)
+        self.assertEqual(200, status)
+        self.assertEqual("image/jpeg", headers["Content-Type"])
+        self.assertEqual("fake-jpeg-bytes", body)
+        self.assertEqual("private, no-cache", headers["Cache-Control"])
+
+        status, cached, body = self.request(
+            "GET", "/api/wordbook/pages/p012.jpg", token=token,
+            headers={"If-None-Match": headers["ETag"]},
+        )
+        self.assertEqual(304, status)
+        self.assertIsNone(body)
+        # A cached copy is never confirmed without a session.
+        status, _, _ = self.request(
+            "GET", "/api/wordbook/pages/p012.jpg", headers={"If-None-Match": headers["ETag"]}
+        )
+        self.assertEqual(401, status)
+
+        for path in (
+            "/api/wordbook/pages/p999.jpg",
+            "/api/wordbook/pages/..%2fdata.json",
+            "/api/wordbook/pages/../../sabrina.db",
+            "/api/wordbook/pages/p012.jpg.bak",
+        ):
+            status, _, _ = self.request("GET", path, token=token)
+            self.assertEqual(404, status, path)
+
+    def test_wordbook_is_never_served_as_a_static_file(self):
+        self.install_wordbook()
+        (self.root_dir / "wordbook").mkdir()
+        (self.root_dir / "wordbook" / "data.json").write_text("[]", encoding="utf-8")
+        for path in ("/wordbook/data.json", "/data/wordbook/data.json", "/sabrina.db"):
+            status, _, _ = self.request("GET", path)
+            self.assertEqual(404, status, path)
+
+    def test_wordbook_missing_content_reports_unavailable(self):
+        token = self.login()
+        status, _, body = self.request("GET", "/api/wordbook/data", token=token)
+        self.assertEqual(404, status)
+        self.assertEqual("wordbook_unavailable", body["error"])
+
+    def test_profile_state_round_trips_wordbook_progress(self):
+        token = self.login("Max", "345678")
+        state = {
+            "history": [],
+            "favorites": [],
+            "wordbook": {"entries": {"1:apple": {"level": 3, "at": "2026-10-16T08:00:00Z"}}},
+        }
+        status, _, saved = self.request(
+            "PUT", "/api/profile", {"state_version": 0, "state": state}, token=token
+        )
+        self.assertEqual(200, status)
+        status, _, loaded = self.request("GET", "/api/profile", token=token)
+        self.assertEqual(state["wordbook"], loaded["state"]["wordbook"])
+
+        other = self.login("Sabrina", "234567")
+        status, _, theirs = self.request("GET", "/api/profile", token=other)
+        self.assertNotIn("wordbook", theirs["state"])
+
+    def test_rejects_invalid_wordbook_state(self):
+        token = self.login()
+        for wordbook in (
+            [],
+            {"entries": []},
+            {"entries": {"1:apple": {"level": 4}}},
+            {"entries": {"1:apple": {"level": True}}},
+            {"entries": {"1:apple": {"level": 1, "at": 5}}},
+            {"entries": {"": {"level": 1}}},
+            {"entries": {"x" * 121: {"level": 1}}},
+            {"entries": {"1:apple": "known"}},
+        ):
+            status, _, body = self.request(
+                "PUT",
+                "/api/profile",
+                {"state_version": 0, "state": {"history": [], "favorites": [], "wordbook": wordbook}},
+                token=token,
+            )
+            self.assertEqual(400, status, wordbook)
+            self.assertEqual("invalid_profile_state", body["error"])
+
     def test_health_reports_database_error(self):
         self.server.store.db_path.unlink()
         self.server.store.db_path.mkdir()

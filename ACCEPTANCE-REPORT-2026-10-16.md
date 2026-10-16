@@ -15,11 +15,11 @@
 | 常用表达 | 600 |
 | 句型 | 250 |
 
-内容版本：`2026.10.16-1`。`python3 scripts/validate_content.py content` 输出 `content library: ok`。
+内容版本：`2026.10.16-2`。`python3 scripts/validate_content.py content` 输出 `content library: ok`。
 
 ## 自动化验证
 
-- `python3 -m unittest discover -v`：58 项测试全部通过。
+- `python3 -m unittest discover -v`：60 项测试全部通过。
 - 覆盖内容 schema、数量、唯一 ID、manifest SHA-256、静态文件白名单、ETag、选择器、旧历史兼容、同模式下一组、登录同步、备份和部署契约。
 - `git diff --check`：通过。
 
@@ -28,8 +28,8 @@
 - `./deploy/install.sh`：成功；没有覆盖数据库。
 - 本机健康检查：`http://127.0.0.1:18880/api/health` 返回数据库正常。
 - 公网健康检查：`https://sabrina.redflyingpig.com/api/health` 返回数据库正常。
-- 公网、本机和仓库的 `content/manifest.json` SHA-256 一致：`bbc127718202eb93b1be1f98b54dfb902725be9511d51de80c39c566c177a66a`。
-- 本机返回的 A1 分片与仓库 SHA-256 一致：`a14e74326204a5a0a487df31049c7894e7084806cc2062be1c5f9c971fcf3ddb`。
+- 公网、本机和仓库的 `content/manifest.json` SHA-256 一致：`9026f3640f3ddc4ef0589d44f555fec5bb7e903d588f705df858f67de1490f1d`。
+- 本机返回的 A1 分片与仓库 SHA-256 一致：`727c297182c74223cc81453fbc427c558fc03f1f52937dab6d83afa1566c3701`。
 - `.git/HEAD`、`scripts/generate_content.py`、`sabrina_backend/app.py`、`content/ATTRIBUTION.md` 均返回 404。
 - `lsof` 确认服务只监听 `127.0.0.1:18880`。
 
@@ -43,6 +43,8 @@
 - 离线验收前后服务端 `state_version` 和历史数量完全不变；临时会话已注销，没有留下验收学习记录。
 - 手机视口显示 5 张卡片，无横向溢出。
 - 导入、导出按钮宽度约 63px，保持紧凑。
+
+独立代码审查后又补做了四项加固：同步请求上限由 1 MiB 提高到 4 MiB；整池学完后可以更新复习时间并轮换最久未复习内容；远端档案水合后才选择首批；过滤已知冒犯词、错误缩写和常见英美拼写重复。
 
 截图：
 

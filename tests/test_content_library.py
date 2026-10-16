@@ -1,5 +1,7 @@
+import csv
 import hashlib
 import json
+import os
 import random
 import re
 import tempfile
@@ -10,6 +12,9 @@ from scripts.validate_content import normalize_identity, validate_library, write
 
 
 REPO_CONTENT = Path(__file__).resolve().parents[1] / "content"
+# Pinned ECDICT build input. It is deliberately kept outside the repository, so tests that need it
+# skip when it is absent instead of failing on machines that only have the generated JSON.
+ECDICT_SOURCE = Path(os.environ.get("SABRINA_ECDICT_SOURCE", "/tmp/sabrina-content-source/ecdict.csv"))
 ALLOWED_TOPICS = {
     "daily-life",
     "family",
@@ -223,6 +228,37 @@ class ProductionContentTest(unittest.TestCase):
                 self.assertNotIn(r"\n", row["example"])
                 self.assertNotRegex(row["translation"], r"男子名|女子名|人名|地名|国名")
                 self.assertNotRegex(row["example"], r"\bmeans\s+[nvars]\.")
+
+    @unittest.skipUnless(ECDICT_SOURCE.exists(), f"pinned ECDICT source not present at {ECDICT_SOURCE}")
+    def test_production_shards_are_frequency_ascending(self):
+        # assets/content-library.js priorityOrder() treats shard order as the frequency priority and
+        # only re-sorts function words to the end. If a regeneration emitted an unsorted shard, daily
+        # lessons would silently stop surfacing high-frequency words first.
+        csv.field_size_limit(10**9)
+        graded = {}
+        with ECDICT_SOURCE.open(encoding="utf-8-sig", newline="") as source:
+            for row in csv.DictReader(source):
+                word = row.get("word", "").strip()
+                if not word or word in graded:
+                    continue
+                ranks = [
+                    int(value)
+                    for field in ("bnc", "frq")
+                    if (value := row.get(field, "").strip()).isdigit() and int(value) > 0
+                ]
+                if ranks:
+                    graded[word] = min(ranks)
+
+        previous = 0
+        for level in ("A1", "A2", "B1", "B2"):
+            ranks = [graded[row["word"]] for row in self.load(f"vocabulary-{level.lower()}.json")]
+            self.assertEqual(
+                sorted(ranks),
+                ranks,
+                f"{level} shard is not in ascending frequency order",
+            )
+            self.assertGreaterEqual(ranks[0], previous, f"{level} overlaps the previous level's range")
+            previous = ranks[-1]
 
     def test_vocabulary_excludes_known_bad_entries_and_spelling_aliases(self):
         words = set()

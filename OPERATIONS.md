@@ -4,6 +4,15 @@
 
 在项目目录运行 `./deploy/install.sh`。脚本会安装网站服务和每日备份两个 macOS LaunchAgent；重复执行就是升级，不会覆盖数据库。
 
+课程内容是仓库内 `content/` 的版本化静态 JSON。升级前可运行：
+
+```sh
+python3 scripts/validate_content.py content
+python3 -m unittest discover -v
+```
+
+服务启动时从 `content/manifest.json` 建立公开文件白名单；新增或替换内容后必须重启服务。浏览器会校验每个分片的 SHA-256，校验失败时保留本机学习记录并显示重试入口。
+
 ## 初始化三个档案
 
 ```sh
@@ -69,7 +78,9 @@ sqlite3 "$HOME/Library/Application Support/SabrinaEnglish/sabrina.db" 'PRAGMA in
 
 ## 回滚
 
-安装脚本会把旧 plist 保存为 `.previous`。代码回滚到上一个可用提交后重新执行 `./deploy/install.sh`；操作前先手动备份。
+安装脚本会把旧 plist 保存为 `.previous`。操作前先手动备份，然后把代码切回上一个可用提交并重新执行 `./deploy/install.sh`。本次内容升级没有数据库 schema 迁移，旧版本可以继续读取现有学习记录；新记录多出的 `contentId` 字段会被旧版本安全忽略。
+
+只回滚内容时，应把 `content/`、`assets/content-library.js` 和 `index.html` 回到同一个提交，不能混搭 manifest 与分片，否则浏览器会因哈希不一致拒绝加载。
 
 ## 卸载
 

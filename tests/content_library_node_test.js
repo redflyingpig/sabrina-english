@@ -52,7 +52,8 @@ function testStableOrderAndSelection() {
   const second = SabrinaContent.selectBatch({ items, history: updatedHistory, batchSize: 2, seed: "owner", cursor: first.nextCursor });
   assert.equal(second.items.length, 2);
   assert(!second.items.some((entry) => first.items.includes(entry)));
-  const expectedOrder = SabrinaContent.stableOrder(items, "owner").filter((entry) => entry.id !== "v1:a");
+  // Unseen lessons are served in frequency-priority order (shard order), not shuffled.
+  const expectedOrder = SabrinaContent.priorityOrder(items).filter((entry) => entry.id !== "v1:a");
   assert.deepEqual(first.items.concat(second.items), expectedOrder.slice(0, 4));
   const remainingIds = new Set(items.map((entry) => entry.id));
   for (const entry of updatedHistory) remainingIds.delete(entry.contentId);
@@ -91,10 +92,36 @@ function testLegacyAndExhaustion() {
   assert.equal(new Set(wrapped.items.map((entry) => entry.id)).size, 5);
 }
 
+function testFrequencyPriority() {
+  // Shard order is the generator's frequency order: content words first, function words last.
+  const items = ["the", "apple", "and", "banana", "of", "cherry"].map((word) => item(`v1:${word}`, word));
+  assert.deepEqual(
+    SabrinaContent.priorityOrder(items).map((entry) => entry.word),
+    ["apple", "banana", "cherry", "the", "and", "of"]
+  );
+
+  // A fresh learner must receive high-frequency content words, never leading function words.
+  const fresh = SabrinaContent.selectBatch({ items, history: [], batchSize: 3, seed: "owner", cursor: 0 });
+  assert.deepEqual(fresh.items.map((entry) => entry.word), ["apple", "banana", "cherry"]);
+  assert(!fresh.items.some((entry) => ["the", "and", "of"].includes(entry.word)));
+
+  // Selection is deterministic per profile and still skips learned ids.
+  const again = SabrinaContent.selectBatch({ items, history: [], batchSize: 3, seed: "owner", cursor: 0 });
+  assert.deepEqual(again.items.map((entry) => entry.id), fresh.items.map((entry) => entry.id));
+
+  // A custom array without any function word keeps its original order.
+  const plain = ["zebra", "apple", "mango"].map((word) => item(`v1:${word}`, word));
+  assert.deepEqual(
+    SabrinaContent.priorityOrder(plain).map((entry) => entry.word),
+    ["zebra", "apple", "mango"]
+  );
+}
+
 (async () => {
   await testLoadAndIntegrity();
   testStableOrderAndSelection();
   testLegacyAndExhaustion();
+  testFrequencyPriority();
   console.log("content library node tests: ok");
 })().catch((error) => {
   console.error(error);

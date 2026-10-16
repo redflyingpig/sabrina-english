@@ -32,6 +32,10 @@ else:
 
 SOURCE_REVISION = "82c9872576b23118d7c42e920c11beb77f510ae2"
 SOURCE_SHA256 = "1a6947e04785db63613a92e14903cdae7954f7e84860b10e68e5c7cbb3f9c3cf"
+# Version emitted into content/manifest.json when shards are regenerated. content/manifest.json
+# currently declares 2026.10.16-4: the shard bytes are identical to this revision, but the client
+# changed how it orders unseen lessons (frequency priority, function words last), and the bump
+# re-anchors per-profile selection cursors onto the new order. Regenerating shards resets it here.
 CONTENT_VERSION = "2026.10.16-3"
 LEVEL_COUNTS = (("A1", 800), ("A2", 1200), ("B1", 1200), ("B2", 800))
 WORD_PATTERN = re.compile(r"[a-z]+(?:-[a-z]+)?")

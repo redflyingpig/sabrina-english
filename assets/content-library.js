@@ -22,6 +22,50 @@
     return aliases[normalized] || normalized;
   }
 
+  // Function words (articles, pronouns, auxiliaries, prepositions, conjunctions,
+  // determiners) carry little study value on their own: "the/be/and/of/a" are the
+  // highest-frequency words in the corpus but a learner already knows them. They are
+  // deprioritised rather than removed, so they still appear once the content words of
+  // the level are covered. Every shard is emitted by scripts/generate_content.py in
+  // ascending min(bnc, frq) rank order, so array order is the frequency priority.
+  const FUNCTION_WORDS = new Set((
+    // articles, determiners, quantifiers
+    "a an the this that these those each every either neither both all any some no none " +
+    "another other others such same enough several many much more most less least few fewer " +
+    // personal, possessive, reflexive, demonstrative, relative, interrogative pronouns
+    "i me my mine myself we us our ours ourselves you your yours yourself yourselves " +
+    "he him his himself she her hers herself it its itself they them their theirs themselves " +
+    "who whom whose which what whatever whichever whoever whoever whenever wherever however " +
+    "one oneself " +
+    // primary auxiliaries, modals, copula and their contractions/negations
+    "be am is are was were been being do does did done doing have has had having " +
+    "will would shall should can could may might must ought need dare " +
+    "cannot ain't aren't can't couldn't didn't doesn't don't hadn't hasn't haven't isn't " +
+    "mustn't shan't shouldn't wasn't weren't won't wouldn't " +
+    // prepositions
+    "aboard about above across after against along amid amid amidst among amongst around as " +
+    "at atop before behind below beneath beside besides between beyond but by concerning " +
+    "despite down during except for from in inside into like near of off on onto opposite out " +
+    "outside over past per regarding round since than through throughout till to toward towards " +
+    "under underneath unlike until unto up upon versus via with within without " +
+    // coordinating and subordinating conjunctions, complementisers
+    "and or nor so yet because though although while whilst whereas unless if whether once " +
+    "when whenever where wherever why how that " +
+    // adverbs that only restate grammatical relations
+    "not also too very just only even still already there here then than now thus hence therefore"
+  ).split(/\s+/).filter(Boolean));
+
+  function priorityOrder(items) {
+    return Array.from(items || [])
+      .map((entry, index) => ({ entry, index }))
+      .sort((left, right) => {
+        const leftFunction = FUNCTION_WORDS.has(normalize(itemTitle(left.entry))) ? 1 : 0;
+        const rightFunction = FUNCTION_WORDS.has(normalize(itemTitle(right.entry))) ? 1 : 0;
+        return leftFunction - rightFunction || left.index - right.index;
+      })
+      .map((candidate) => candidate.entry);
+  }
+
   function hashSeed(value) {
     let hash = 2166136261;
     for (const character of String(value)) {
@@ -85,7 +129,11 @@
   }
 
   function selectBatch({ items, history = [], batchSize, seed, cursor = 0 }) {
-    const ordered = stableOrder(items, seed);
+    // Unseen lessons follow frequency priority (shard order, function words last) so a
+    // learner meets high-frequency content words first. Review rotation keeps the seeded
+    // shuffle to spread revisited items.
+    const ordered = priorityOrder(items);
+    const shuffled = stableOrder(items, seed);
     const learnedIds = new Set(history.map((entry) => entry && entry.contentId).filter(Boolean));
     const learnedLegacy = new Set(history.map(legacyIdentity).filter(Boolean));
     const isUnseen = (entry) =>
@@ -110,7 +158,7 @@
       if (!identity) continue;
       lastSeen.set(identity, Math.max(lastSeen.get(identity) || 0, historyTime(entry)));
     }
-    const review = ordered
+    const review = shuffled
       .map((entry, index) => ({
         entry,
         index,
@@ -177,5 +225,5 @@
     };
   }
 
-  return { load, stableOrder, selectBatch, legacyIdentity, normalize };
+  return { load, stableOrder, priorityOrder, selectBatch, legacyIdentity, normalize };
 });

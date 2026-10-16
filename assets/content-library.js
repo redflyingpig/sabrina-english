@@ -59,8 +59,8 @@
   function normalizedMode(mode) {
     const value = normalize(mode);
     if (value === "vocabulary" || value === "words" || value === "word") return "vocabulary";
-    if (value === "expression" || value === "expressions") return "expressions";
-    if (value === "pattern" || value === "patterns") return "patterns";
+    if (value === "expression" || value === "expressions" || value === "common expressions") return "expressions";
+    if (value === "pattern" || value === "patterns" || value === "sentence pattern") return "patterns";
     return value || null;
   }
 

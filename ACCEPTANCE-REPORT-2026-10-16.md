@@ -111,6 +111,47 @@
 
 > 注意：报告前文「内容版本：`2026.10.16-3`」与其中的 manifest/分片哈希描述的是别名归一那一轮的在线状态；截至频率优先轮，**当前线上内容版本为 `2026.10.16-4`，manifest SHA 为 `8c71a1bd…b74043ca`**，各分片哈希未变。
 
+## 每日 10 词与带状优先级（commit `9aeddf4`）
+
+**需求**：Mode A 词汇量由每天 5 个提升到 10 个；优先级不再严格从头到尾，允许窗口内随机，高频先出现、低频后出现，偶尔混入邻近低频词可以接受。
+
+**实现**
+
+- `index.html`：`batchSizes` 的 `A` 由 `5` 改为 `10`，副标题同步为「今天的 10 个单词」。Mode B/C 数量不变。
+- `assets/content-library.js`：优先级由「严格队列」改为「滑动窗口 + 分层」：
+  - `PRIORITY_WINDOW = 10`，批次从游标后 `size + 10` 个位置中抽取，窗口内用种子随机（`seed|jitter|start`）打散，因此高频居前但允许邻近词混入。
+  - 窗口内**先取实词、实词不足才取功能词**，避免功能词插队到尚未学完的实词之前。
+  - 游标跳过整个窗口，因此相邻批次不复用位置、不会重复。
+- `content/manifest.json` 版本升为 `2026.10.16-5`（选择算法变更）。分片字节未变。
+
+**实测行为**（4000 词拼接数组，每天 10 词，连续 4 天）：
+
+| 天 | 会学到的词 | 优先级位置 |
+|---|---|---|
+| 1 | take, get, see, new, think, want, time, go, make, give | 1–18 |
+| 2 | back, man, day, people, thing, yeah, good, find, come, three | 11–29 |
+| 3 | last, tell, mean, use, call, woman, oh, put, child, work | 21–40 |
+| 4 | state, become, great, leave, old, try, feel, ask, system, school | 39–53 |
+
+位置呈带状推进，窗口间交叉但不跳级；功能词被可靠推迟到实词之后。
+
+**本轮线上证据**（2026-10-16，模式 A）：
+
+- `./deploy/install.sh` → 成功，服务进程 PID 53282 → 54983。
+- 公网 manifest 版本 `2026.10.16-5`；公网 `assets/content-library.js` 与仓库逐字节一致（SHA 前缀 `606d0e14cf1fb75b`）；线上 `index.html` 含 `batchSizes = { A: 10 }`。
+- 真实浏览器实测：模式 A、副标题「今天的 10 个单词」、进度 `0 / 10`、**卡片数 10**。
+- 卡片 `species, finger, solution, positive, arise, consumer, partner, scientist, safe, examine` 在 4000 词优先级序中的位置为 `960–979`（跨度 19，符合窗口设计），全部可定位、无重复。
+- `python3 -m unittest discover` → 61 项通过；`node tests/content_library_node_test.js` → ok；`validate_content.py content` → ok。
+- 大词库烟测 `large-library-smoke.mjs` 重跑 → exit 0；桌面与移动端均 10 张卡、移动端无横向溢出、续学零重复、服务端 `state_version` 与历史数量不变。
+
+> 注意：报告前文「内容版本：`2026.10.16-3`」及其中哈希描述的是别名归一那一轮的在线状态。**当前线上内容版本为 `2026.10.16-5`**；各分片哈希自 `2026.10.16-3` 起未变，manifest SHA 见 `git show 9aeddf4:content/manifest.json` 的计算结果。
+
+## 发现问题（未在本轮修复）
+
+**`erm` 词条翻译错误**：ECDICT 中 `erm` 的 `.bnc` 排名为 133、无 `collins` 等级，translations 为 `abbr. ermine 貂; erythromycin 红霉素`，即被当作缩写收录，而非口语填充词。生成器的 `_translation()` 会剥掉 `abbr.` 前缀，导致它以「生僻缩写」形态进入 A1（优先级序第 50 位），实测会出现在第 4 天的候选里。同批检查中 `oh`（collins 5）、`yeah`（bnc 103）为正常口语词，无需处理。
+
+这属于生成器的数据清洗问题（应拒绝或无中文义项可用的缩写条目），与频率排序改动无关，按「不扩大范围」原则本轮未改，留作后续独立修复。
+
 ## 回滚确认
 
 本次升级不改 SQLite schema。上一版可直接重新安装并继续读取现有数据；新增的 `contentId` 字段会被旧版安全忽略。回滚时必须让 `index.html`、`assets/content-library.js` 和整个 `content/` 来自同一提交，避免 manifest 与分片哈希不一致。

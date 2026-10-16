@@ -18,6 +18,18 @@ class AppTest(unittest.TestCase):
         (self.root_dir / "index.html").write_text(
             "<!doctype html><title>Sabrina English</title>", encoding="utf-8"
         )
+        (self.root_dir / "content").mkdir()
+        (self.root_dir / "assets").mkdir()
+        (self.root_dir / "content" / "vocabulary-a1.json").write_text(
+            '[{"id":"v1:hello"}]', encoding="utf-8"
+        )
+        (self.root_dir / "content" / "manifest.json").write_text(
+            json.dumps({"files": {"vocabulary-a1.json": {"count": 1}}}),
+            encoding="utf-8",
+        )
+        (self.root_dir / "assets" / "content-library.js").write_text(
+            "window.SabrinaContent = {};", encoding="utf-8"
+        )
         self.server = create_server("127.0.0.1", 0, self.root_dir, self.data_dir)
         self.server.store.create_profile("Owner", "123456")
         self.server.store.create_profile("Sabrina", "234567")
@@ -75,6 +87,42 @@ class AppTest(unittest.TestCase):
         status, _, body = self.request("GET", "/.git/HEAD")
         self.assertEqual(404, status)
         self.assertEqual("not_found", body["error"])
+
+    def test_serves_only_approved_content_assets(self):
+        status, headers, manifest = self.request("GET", "/content/manifest.json")
+        self.assertEqual(200, status)
+        self.assertIn("application/json", headers["Content-Type"])
+        self.assertIn("ETag", headers)
+        self.assertIn("files", manifest)
+
+        status, shard_headers, shard = self.request("GET", "/content/vocabulary-a1.json")
+        self.assertEqual(200, status)
+        self.assertEqual([{"id": "v1:hello"}], shard)
+        status, cached_headers, body = self.request(
+            "GET",
+            "/content/vocabulary-a1.json",
+            headers={"If-None-Match": shard_headers["ETag"]},
+        )
+        self.assertEqual(304, status)
+        self.assertIsNone(body)
+        self.assertEqual(shard_headers["ETag"], cached_headers["ETag"])
+
+        status, headers, script = self.request("GET", "/assets/content-library.js")
+        self.assertEqual(200, status)
+        self.assertIn("javascript", headers["Content-Type"])
+        self.assertIn("SabrinaContent", script)
+
+        (self.root_dir / "content" / "secret.json").write_text("{}", encoding="utf-8")
+        for path in (
+            "/content/secret.json",
+            "/content/%2e%2e/index.html",
+            "/.git/HEAD",
+            "/scripts/generate_content.py",
+            "/sabrina_backend/app.py",
+        ):
+            status, _, body = self.request("GET", path)
+            self.assertEqual(404, status, path)
+            self.assertEqual("not_found", body["error"], path)
 
     def test_health_reports_database_error(self):
         self.server.store.db_path.unlink()

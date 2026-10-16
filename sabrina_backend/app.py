@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import ipaddress
 import json
 import logging
@@ -43,6 +44,7 @@ class SabrinaHTTPServer(ThreadingHTTPServer):
         data_dir: Path,
     ):
         self.root_dir = root_dir.resolve()
+        self.approved_content_files = self._load_approved_content_files()
         self.data_dir = data_dir.resolve()
         self.data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         try:
@@ -57,6 +59,25 @@ class SabrinaHTTPServer(ThreadingHTTPServer):
         ).rstrip("/")
         self.logger = self._configure_logger()
         super().__init__(server_address, handler_class)
+
+    def _load_approved_content_files(self) -> frozenset:
+        manifest_path = self.root_dir / "content" / "manifest.json"
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            files = manifest["files"]
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError):
+            return frozenset()
+        if not isinstance(files, dict):
+            return frozenset()
+        approved = {
+            name
+            for name in files
+            if isinstance(name, str)
+            and name.endswith(".json")
+            and Path(name).name == name
+            and not name.startswith(".")
+        }
+        return frozenset(approved)
 
     def _configure_logger(self) -> logging.Logger:
         logger = logging.getLogger(f"sabrina.{id(self)}")
@@ -382,8 +403,16 @@ class SabrinaHandler(BaseHTTPRequestHandler):
 
     def _serve_static(self, request_path: str) -> None:
         decoded = unquote(request_path)
+        parts = [part for part in decoded.split("/") if part]
+        if any(part in {".", ".."} or part.startswith(".") for part in parts):
+            self._error(404, "not_found", "File not found")
+            return
         relative = decoded.lstrip("/") or "index.html"
-        if relative != "index.html":
+        approved = {"index.html", "assets/content-library.js", "content/manifest.json"}
+        approved.update(
+            f"content/{name}" for name in self.server.approved_content_files
+        )
+        if relative not in approved:
             self._error(404, "not_found", "File not found")
             return
         candidate = (self.server.root_dir / relative).resolve()
@@ -403,7 +432,24 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             "application/json",
         }:
             content_type += "; charset=utf-8"
-        self._send_bytes(200, candidate.read_bytes(), content_type)
+        body = candidate.read_bytes()
+        etag = '"' + hashlib.sha256(body).hexdigest() + '"'
+        if self.headers.get("If-None-Match") == etag:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            for name, value in self._security_headers().items():
+                self.send_header(name, value)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "public, max-age=0, must-revalidate")
+        for name, value in self._security_headers().items():
+            self.send_header(name, value)
+        self.end_headers()
+        self.wfile.write(body)
 
 
 def create_server(

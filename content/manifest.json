@@ -1,0 +1,40 @@
+{
+  "version": "2026.10.16-1",
+  "files": {
+    "vocabulary-a1.json": {
+      "kind": "vocabulary",
+      "count": 800,
+      "sha256": "a14e74326204a5a0a487df31049c7894e7084806cc2062be1c5f9c971fcf3ddb"
+    },
+    "vocabulary-a2.json": {
+      "kind": "vocabulary",
+      "count": 1200,
+      "sha256": "d198fd1b440e2efb92805ed0272fe37c80fbc03509956928b6cb3a5e63b119d2"
+    },
+    "vocabulary-b1.json": {
+      "kind": "vocabulary",
+      "count": 1200,
+      "sha256": "b2c821e278bd53f08a6be9702842bbed160ef314a75154384128d32b065123cb"
+    },
+    "vocabulary-b2.json": {
+      "kind": "vocabulary",
+      "count": 800,
+      "sha256": "013af8ee53edd6afb3bf0d85254f65c1678310afa7d80f1dca5ccf063b466f19"
+    },
+    "expressions.json": {
+      "kind": "expressions",
+      "count": 600,
+      "sha256": "cadefde0961619fcaa0ff4865e784f6fc4407c6d11d5fa9bb2a6ebe263bbf990"
+    },
+    "patterns.json": {
+      "kind": "patterns",
+      "count": 250,
+      "sha256": "36c7fb7a58b92ef0c0ec5f4d45242e83c09b371adac3990d4f01e273f5d9d893"
+    }
+  },
+  "counts": {
+    "vocabulary": 4000,
+    "expressions": 600,
+    "patterns": 250
+  }
+}

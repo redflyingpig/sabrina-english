@@ -1,10 +1,34 @@
 import hashlib
 import json
+import random
+import re
 import tempfile
 import unittest
 from pathlib import Path
 
 from scripts.validate_content import normalize_identity, validate_library, write_manifest
+
+
+REPO_CONTENT = Path(__file__).resolve().parents[1] / "content"
+ALLOWED_TOPICS = {
+    "daily-life",
+    "family",
+    "school",
+    "work",
+    "shopping",
+    "food",
+    "health",
+    "transport",
+    "travel",
+    "weather",
+    "home",
+    "relationships",
+    "entertainment",
+    "digital-life",
+    "public-services",
+    "time",
+    "nature",
+}
 
 
 class ContentLibraryTest(unittest.TestCase):
@@ -145,6 +169,60 @@ class ContentLibraryTest(unittest.TestCase):
         self.assertTrue(any("vocabulary count 4 is below 4000" in error for error in errors), errors)
         self.assertTrue(any("expressions count 1 is below 600" in error for error in errors), errors)
         self.assertTrue(any("patterns count 1 is below 250" in error for error in errors), errors)
+
+
+class ProductionContentTest(unittest.TestCase):
+    @staticmethod
+    def load(name):
+        return json.loads((REPO_CONTENT / name).read_text(encoding="utf-8"))
+
+    def test_production_library_meets_counts_and_level_distribution(self):
+        shards = {
+            level: self.load(f"vocabulary-{level.lower()}.json")
+            for level in ("A1", "A2", "B1", "B2")
+        }
+        self.assertGreaterEqual(len(shards["A1"]), 800)
+        self.assertGreaterEqual(len(shards["A2"]), 1200)
+        self.assertGreaterEqual(len(shards["B1"]), 1200)
+        self.assertGreaterEqual(len(shards["B2"]), 800)
+        self.assertGreaterEqual(sum(map(len, shards.values())), 4000)
+        self.assertGreaterEqual(len(self.load("expressions.json")), 600)
+        self.assertGreaterEqual(len(self.load("patterns.json")), 250)
+        self.assertEqual([], validate_library(REPO_CONTENT))
+
+    def test_production_records_are_safe_complete_and_unique(self):
+        rows = []
+        for name in (
+            "vocabulary-a1.json",
+            "vocabulary-a2.json",
+            "vocabulary-b1.json",
+            "vocabulary-b2.json",
+            "expressions.json",
+            "patterns.json",
+        ):
+            rows.extend(self.load(name))
+        self.assertEqual(len(rows), len({row["id"] for row in rows}))
+        for row in rows:
+            self.assertIn(row["level"], {"A1", "A2", "B1", "B2"})
+            self.assertIn(row["topic"], ALLOWED_TOPICS)
+            serialized = json.dumps(row, ensure_ascii=False)
+            self.assertIsNone(re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", serialized))
+            self.assertNotRegex(serialized, r"<\s*(script|iframe|object|embed)\b")
+
+    def test_stratified_vocabulary_review_sample_has_learning_fields(self):
+        for level in ("A1", "A2", "B1", "B2"):
+            rows = self.load(f"vocabulary-{level.lower()}.json")
+            sample = random.Random(f"sabrina-review-{level}").sample(rows, 25)
+            self.assertEqual(25, len(sample))
+            for row in sample:
+                self.assertTrue(row["word"].strip())
+                self.assertTrue(row["phonetic"].strip())
+                self.assertTrue(row["translation"].strip())
+                self.assertTrue(row["example"].strip())
+                self.assertNotIn(r"\n", row["translation"])
+                self.assertNotIn(r"\n", row["example"])
+                self.assertNotRegex(row["translation"], r"男子名|女子名|人名|地名|国名")
+                self.assertNotRegex(row["example"], r"\bmeans\s+[nvars]\.")
 
 
 if __name__ == "__main__":

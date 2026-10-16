@@ -224,6 +224,14 @@ class ProductionContentTest(unittest.TestCase):
                 self.assertNotRegex(row["translation"], r"男子名|女子名|人名|地名|国名")
                 self.assertNotRegex(row["example"], r"\bmeans\s+[nvars]\.")
 
+    def test_vocabulary_excludes_known_bad_entries_and_spelling_aliases(self):
+        words = set()
+        for level in ("A1", "A2", "B1", "B2"):
+            words.update(row["word"] for row in self.load(f"vocabulary-{level.lower()}.json"))
+        self.assertTrue({"bastard", "eric", "phil", "shit"}.isdisjoint(words))
+        for left, right in (("color", "colour"), ("center", "centre"), ("labor", "labour"), ("organize", "organise")):
+            self.assertFalse(left in words and right in words, (left, right))
+
 
 if __name__ == "__main__":
     unittest.main()

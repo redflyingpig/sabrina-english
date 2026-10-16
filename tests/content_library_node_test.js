@@ -78,6 +78,11 @@ function testLegacyAndExhaustion() {
   const review = SabrinaContent.selectBatch({ items, history, batchSize: 1, seed: "x", cursor: 0 });
   assert.equal(review.exhausted, true);
   assert.equal(review.items[0].id, "v1:hello");
+  const reviewedHistory = history.map((entry) => entry.contentId === "v1:hello"
+    ? { ...entry, reviewedAt: "2026-11-01T00:00:00Z" }
+    : entry);
+  const nextReview = SabrinaContent.selectBatch({ items, history: reviewedHistory, batchSize: 1, seed: "x", cursor: 0 });
+  assert.equal(nextReview.items[0].id, "v1:world");
 }
 
 (async () => {

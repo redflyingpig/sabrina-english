@@ -279,6 +279,7 @@ class AppTest(unittest.TestCase):
         self.assertEqual(1, conflict["current"]["state_version"])
 
     def test_rejects_bad_and_oversized_json(self):
+        self.assertGreaterEqual(MAX_BODY_BYTES, 4 * 1024 * 1024)
         status, _, body = self.request(
             "POST",
             "/api/auth/login",

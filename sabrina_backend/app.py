@@ -20,7 +20,7 @@ from urllib.parse import unquote, urlsplit
 from .store import Store, VersionConflict
 
 
-MAX_BODY_BYTES = 1024 * 1024
+MAX_BODY_BYTES = 4 * 1024 * 1024
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_FAILURE_WINDOW_SECONDS = 10 * 60
 CONTENT_SECURITY_POLICY = (
@@ -179,7 +179,7 @@ class SabrinaHandler(BaseHTTPRequestHandler):
                     break
                 remaining -= len(chunk)
             self.close_connection = True
-            self._error(413, "body_too_large", "Request body exceeds 1 MiB")
+            self._error(413, "body_too_large", "Request body exceeds 4 MiB")
             return None
         if length <= 0:
             return {}

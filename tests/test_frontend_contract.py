@@ -138,6 +138,12 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn("SabrinaContent.legacyIdentity", self.html)
         self.assertNotIn("localStorage.removeItem(STORAGE_KEY)", self.function_body("loadContentLibrary"))
 
+    def test_profile_history_loads_before_initial_batch_and_review_can_advance(self):
+        initialize = self.function_body("initializeApp")
+        self.assertLess(initialize.index("await loadProfileFromServer()"), initialize.rindex("await loadContentLibrary()"))
+        self.assertIn("reviewedThisBatch.add(item.contentId)", self.function_body("markLearned"))
+        self.assertIn("reviewedAt: new Date().toISOString()", self.function_body("markLearned"))
+
     def test_backup_controls_are_compact(self):
         backup_section = self.html.split('aria-labelledby="backupTitle"', 1)[1].split("</section>", 1)[0]
         self.assertIn('class="backup-actions"', backup_section)

@@ -1022,6 +1022,9 @@
     const mode = pickDailyMode(todayKey);
     const batchSizes = { A: 5, B: 3, C: 1 };
     let contentLibrary = { A: [], B: [], C: [] };
+    let contentVersion = "unknown";
+    let lessonIsReview = false;
+    let reviewedThisBatch = new Set();
     let lessonSetIndex = getModeOccurrenceIndex(mode, today) * batchSizes[mode];
     let lessonSet = [];
 
@@ -1099,6 +1102,8 @@
       const selection = selectNextLessonSet(mode, lessonSetIndex, getHistory());
       lessonSetIndex = selection.nextCursor;
       lessonSet = selection.items;
+      lessonIsReview = selection.exhausted;
+      reviewedThisBatch = new Set();
       renderLesson();
       window.scrollTo({ top: lessonGrid.offsetTop - 140, behavior: "smooth" });
       showToast(selection.exhausted
@@ -1119,8 +1124,8 @@
     });
 
     async function initializeApp() {
-      await loadContentLibrary();
       if (!activeProfile || !sessionToken) {
+        await loadContentLibrary();
         renderAll();
         showLoginDialog();
         return;
@@ -1129,9 +1134,8 @@
       profileBar.hidden = false;
       profileName.textContent = activeProfile.name;
       migrateLegacyData();
-      renderAll();
-
       await loadProfileFromServer();
+      await loadContentLibrary();
     }
 
     async function loadContentLibrary() {
@@ -1145,9 +1149,12 @@
           B: library.expressions,
           C: library.patterns
         };
+        contentVersion = library.version;
         const selection = selectNextLessonSet(mode, lessonSetIndex, getHistory());
         lessonSetIndex = selection.nextCursor;
         lessonSet = selection.items;
+        lessonIsReview = selection.exhausted;
+        reviewedThisBatch = new Set();
         contentLoading.hidden = true;
         renderAll();
       } catch (error) {
@@ -1195,6 +1202,8 @@
         renderAll();
         profileHydrated = false;
         await loadProfileFromServer();
+        lessonSetIndex = getModeOccurrenceIndex(mode, today) * batchSizes[mode];
+        await loadContentLibrary();
       } catch (error) {
         showToast(error.status === 429 ? "尝试次数太多，请稍后再试。" : "用户名或 PIN 不正确。");
         profilePinInput.select();
@@ -1221,7 +1230,9 @@
         const card = document.createElement("article");
         card.className = "lesson-card";
 
-        const learned = history.some((entry) => historyMatchesItem(entry, item));
+        const learned = lessonIsReview
+          ? reviewedThisBatch.has(item.contentId)
+          : history.some((entry) => historyMatchesItem(entry, item));
         const top = document.createElement("div");
         top.className = "item-top";
 
@@ -1345,13 +1356,17 @@
 
     function markLearned(item) {
       const history = getHistory();
-      if (history.some((entry) => historyMatchesItem(entry, item))) {
+      const existingIndex = history.findIndex((entry) => historyMatchesItem(entry, item));
+      if (existingIndex >= 0 && !lessonIsReview) {
         showToast("Already saved.");
         renderLesson();
         return;
       }
 
+      const existing = existingIndex >= 0 ? history.splice(existingIndex, 1)[0] : null;
+      if (lessonIsReview) reviewedThisBatch.add(item.contentId);
       history.unshift({
+        ...existing,
         key: item.key,
         contentId: item.contentId,
         favoriteKey: item.favoriteKey,
@@ -1361,7 +1376,8 @@
         detail: item.note || item.examples[0],
         phonetic: item.phonetic || "",
         examples: item.examples,
-        speech: item.speech
+        speech: item.speech,
+        reviewedAt: new Date().toISOString()
       });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
       updateStreak(todayKey);
@@ -1409,9 +1425,9 @@
     function renderProgress() {
       const items = getDisplayItems(mode, lessonSet);
       const history = getHistory();
-      const learnedCount = items.filter((item) =>
-        history.some((entry) => historyMatchesItem(entry, item))
-      ).length;
+      const learnedCount = lessonIsReview
+        ? items.filter((item) => reviewedThisBatch.has(item.contentId)).length
+        : items.filter((item) => history.some((entry) => historyMatchesItem(entry, item))).length;
       const total = items.length;
       const percent = total ? Math.round((learnedCount / total) * 100) : 0;
       const completed = learnedCount === total && total > 0;
@@ -1426,7 +1442,7 @@
     }
 
     function selectNextLessonSet(currentMode, currentIndex, history) {
-      const seed = `${activeProfile?.name || "guest"}:${currentMode}`;
+      const seed = `${activeProfile?.name || "guest"}:${contentVersion}:${currentMode}`;
       return SabrinaContent.selectBatch({
         items: contentLibrary[currentMode],
         history,

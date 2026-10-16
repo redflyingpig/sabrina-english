@@ -72,7 +72,7 @@
   }
 
   function historyTime(entry) {
-    const raw = entry && (entry.date || entry.learnedAt || entry.updatedAt);
+    const raw = entry && (entry.reviewedAt || entry.date || entry.learnedAt || entry.updatedAt);
     const value = raw ? Date.parse(raw) : 0;
     return Number.isFinite(value) ? value : 0;
   }
@@ -86,7 +86,7 @@
     const unseen = ordered.filter(isUnseen);
     const size = Math.max(1, Number(batchSize) || 1);
     if (unseen.length) {
-      const start = Math.max(0, Number(cursor) || 0);
+      const start = ordered.length ? Math.max(0, Number(cursor) || 0) % ordered.length : 0;
       const batch = [];
       let position = start;
       while (position < ordered.length && batch.length < size) {
@@ -99,7 +99,7 @@
         if (isUnseen(ordered[wrappedPosition])) batch.push(ordered[wrappedPosition]);
         wrappedPosition += 1;
       }
-      return { items: batch, nextCursor: wrappedPosition, exhausted: false };
+      return { items: batch, nextCursor: wrappedPosition % ordered.length, exhausted: false };
     }
 
     const lastSeen = new Map();

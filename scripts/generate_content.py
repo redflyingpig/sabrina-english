@@ -32,7 +32,7 @@ else:
 
 SOURCE_REVISION = "82c9872576b23118d7c42e920c11beb77f510ae2"
 SOURCE_SHA256 = "1a6947e04785db63613a92e14903cdae7954f7e84860b10e68e5c7cbb3f9c3cf"
-CONTENT_VERSION = "2026.10.16-1"
+CONTENT_VERSION = "2026.10.16-2"
 LEVEL_COUNTS = (("A1", 800), ("A2", 1200), ("B1", 1200), ("B2", 800))
 WORD_PATTERN = re.compile(r"[a-z]+(?:-[a-z]+)?")
 CHINESE_PATTERN = re.compile(r"[\u3400-\u9fff]")
@@ -58,6 +58,17 @@ DENY_WORDS = {
     "weren",
     "won",
     "wouldn",
+    "bastard",
+    "eric",
+    "phil",
+    "shit",
+}
+
+SPELLING_ALIASES = {
+    "centre": "center", "colour": "color", "favour": "favor", "favourite": "favorite",
+    "honour": "honor", "labour": "labor", "neighbour": "neighbor", "organise": "organize",
+    "organised": "organized", "organising": "organizing", "realise": "realize",
+    "recognise": "recognize", "theatre": "theater", "travelling": "traveling",
 }
 
 TOPIC_WORDS = {
@@ -128,6 +139,7 @@ def rank_daily_words(rows: Iterable[Dict[str, str]], limit: int = 4000) -> List[
         source_word = row.get("word", "").strip()
         word = source_word.casefold()
         normalized = normalize_identity(word)
+        canonical = SPELLING_ALIASES.get(normalized, normalized)
         rank = _rank(row)
         translation = _translation(row.get("translation", ""))
         phonetic = row.get("phonetic", "").strip()
@@ -135,14 +147,14 @@ def rank_daily_words(rows: Iterable[Dict[str, str]], limit: int = 4000) -> List[
             not WORD_PATTERN.fullmatch(word)
             or source_word != source_word.lower()
             or word in DENY_WORDS
-            or normalized in seen
+            or canonical in seen
             or rank is None
             or not phonetic
             or not translation
             or PROPER_NAME_PATTERN.search(translation)
         ):
             continue
-        seen.add(normalized)
+        seen.add(canonical)
         copy = dict(row)
         copy["word"] = word
         copy["translation_clean"] = translation
@@ -234,8 +246,6 @@ def _patterns() -> List[Dict[str, object]]:
                     "explanation": explanation,
                     "examples": [
                         rendered,
-                        f"Try changing one word in this {context} pattern.",
-                        f"Use this pattern in a short conversation {example_context}.",
                     ],
                 }
             )

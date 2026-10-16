@@ -1,25 +1,25 @@
 {
-  "version": "2026.10.16-1",
+  "version": "2026.10.16-2",
   "files": {
     "vocabulary-a1.json": {
       "kind": "vocabulary",
       "count": 800,
-      "sha256": "a14e74326204a5a0a487df31049c7894e7084806cc2062be1c5f9c971fcf3ddb"
+      "sha256": "727c297182c74223cc81453fbc427c558fc03f1f52937dab6d83afa1566c3701"
     },
     "vocabulary-a2.json": {
       "kind": "vocabulary",
       "count": 1200,
-      "sha256": "d198fd1b440e2efb92805ed0272fe37c80fbc03509956928b6cb3a5e63b119d2"
+      "sha256": "6ee2263b0ce72a58c6ec6f5c6daff3ef8b0a09414876df59cc104a35b782dc04"
     },
     "vocabulary-b1.json": {
       "kind": "vocabulary",
       "count": 1200,
-      "sha256": "b2c821e278bd53f08a6be9702842bbed160ef314a75154384128d32b065123cb"
+      "sha256": "57b97a7c23c382fc846a1457e5f4e8c705bba90cf73b567fe08517d308dcf72f"
     },
     "vocabulary-b2.json": {
       "kind": "vocabulary",
       "count": 800,
-      "sha256": "013af8ee53edd6afb3bf0d85254f65c1678310afa7d80f1dca5ccf063b466f19"
+      "sha256": "c2a0a6ad4768c83eab0c187184aa11cb4d781ac5c74c130256ad9b4105700ad4"
     },
     "expressions.json": {
       "kind": "expressions",
@@ -29,7 +29,7 @@
     "patterns.json": {
       "kind": "patterns",
       "count": 250,
-      "sha256": "36c7fb7a58b92ef0c0ec5f4d45242e83c09b371adac3990d4f01e273f5d9d893"
+      "sha256": "807d6f5329e49535f17849c5a142c7535a5c31c13c9bbdceeb71dfe1819d51f9"
     }
   },
   "counts": {

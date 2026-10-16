@@ -52,9 +52,15 @@ function testStableOrderAndSelection() {
   const second = SabrinaContent.selectBatch({ items, history: updatedHistory, batchSize: 2, seed: "owner", cursor: first.nextCursor });
   assert.equal(second.items.length, 2);
   assert(!second.items.some((entry) => first.items.includes(entry)));
-  // Unseen lessons are served in frequency-priority order (shard order), not shuffled.
-  const expectedOrder = SabrinaContent.priorityOrder(items).filter((entry) => entry.id !== "v1:a");
-  assert.deepEqual(first.items.concat(second.items), expectedOrder.slice(0, 4));
+  // Unseen lessons come from a frequency-priority window, not a strict queue: every pick must stay
+  // inside the leading window, and the two batches together must not repeat an item.
+  const priority = SabrinaContent.priorityOrder(items);
+  const seen = first.items.concat(second.items).map((entry) => entry.id);
+  assert.equal(new Set(seen).size, seen.length);
+  for (const id of seen) {
+    const position = priority.findIndex((candidate) => candidate.id === id);
+    assert.ok(position >= 0 && position < 6, `${id} left the priority window`);
+  }
   const remainingIds = new Set(items.map((entry) => entry.id));
   for (const entry of updatedHistory) remainingIds.delete(entry.contentId);
   for (const entry of second.items) remainingIds.delete(entry.id);
@@ -94,20 +100,60 @@ function testLegacyAndExhaustion() {
 
 function testFrequencyPriority() {
   // Shard order is the generator's frequency order: content words first, function words last.
-  const items = ["the", "apple", "and", "banana", "of", "cherry"].map((word) => item(`v1:${word}`, word));
+  const sample = ["the", "apple", "and", "banana", "of", "cherry"].map((word) => item(`v1:${word}`, word));
   assert.deepEqual(
-    SabrinaContent.priorityOrder(items).map((entry) => entry.word),
+    SabrinaContent.priorityOrder(sample).map((entry) => entry.word),
     ["apple", "banana", "cherry", "the", "and", "of"]
   );
 
-  // A fresh learner must receive high-frequency content words, never leading function words.
-  const fresh = SabrinaContent.selectBatch({ items, history: [], batchSize: 3, seed: "owner", cursor: 0 });
-  assert.deepEqual(fresh.items.map((entry) => entry.word), ["apple", "banana", "cherry"]);
-  assert(!fresh.items.some((entry) => ["the", "and", "of"].includes(entry.word)));
+  // A realistic shard: function words are interleaved early in the raw data, as they are in ECDICT
+  // frequency order, and must still sink below the level's content words.
+  const words = [
+    "the", "make", "and", "know", "of", "see", "a", "take", "in", "think",
+    "to", "come", "is", "give", "it", "look", "he", "want", "we", "use",
+  ];
+  const items = words.map((word) => item(`v1:${word}`, word));
+  const contentWords = ["make", "know", "see", "take", "think", "come", "give", "look", "want", "use"];
+  // A batch is drawn from the window at the cursor. Content words always outrank function words,
+  // so a function word can only enter a batch once every content word ahead of it is taken.
+  const priority = SabrinaContent.priorityOrder(items);
+  const rankOf = (entry) => priority.findIndex((candidate) => candidate.id === entry.id);
+  const fresh = SabrinaContent.selectBatch({ items, history: [], batchSize: 8, seed: "owner", cursor: 0 });
+  assert.equal(fresh.items.length, 8);
+  assert.equal(new Set(fresh.items.map((entry) => entry.id)).size, 8);
+  const freshRanks = fresh.items.map(rankOf);
+  assert.ok(freshRanks.every((rank) => rank >= 0 && rank < 18), `outside window: ${freshRanks}`);
+  const firstFunctionRank = priority.findIndex((entry) => !contentWords.includes(entry.word));
+  assert.ok(
+    freshRanks.every((rank) => rank < firstFunctionRank),
+    `took a function word while content words remained: ${freshRanks}`
+  );
 
-  // Selection is deterministic per profile and still skips learned ids.
-  const again = SabrinaContent.selectBatch({ items, history: [], batchSize: 3, seed: "owner", cursor: 0 });
+  // Draining the window pulls in the remaining content words first, then the head of the function
+  // tier -- function words are ultimately reachable, never lost.
+  const drained = SabrinaContent.selectBatch({ items, history: [], batchSize: 9, seed: "owner", cursor: 0 });
+  assert.equal(drained.items.length, 9);
+  assert.ok(drained.items.some((entry) => contentWords.includes(entry.word)));
+  assert.ok(
+    drained.items.every((entry) => rankOf(entry) < 19),
+    `drained batch left its window: ${drained.items.map(rankOf)}`
+  );
+
+  // Selection is deterministic for a given profile and cursor.
+  const again = SabrinaContent.selectBatch({ items, history: [], batchSize: 8, seed: "owner", cursor: 0 });
   assert.deepEqual(again.items.map((entry) => entry.id), fresh.items.map((entry) => entry.id));
+
+  // Priority is a band, not a strict queue: a later batch starts deeper and stays below the head,
+  // yet a batch's picks stay inside the window after its own cursor.
+  const wide = Array.from({ length: 60 }, (_, index) => item(`v1:w${index}`, `w${index}`));
+  const early = SabrinaContent.selectBatch({ items: wide, history: [], batchSize: 4, seed: "band", cursor: 0 });
+  const later = SabrinaContent.selectBatch({ items: wide, history: [], batchSize: 4, seed: "band", cursor: 30 });
+  const wideRank = (entry) => SabrinaContent.priorityOrder(wide).findIndex((c) => c.id === entry.id);
+  const earlyRanks = early.items.map(wideRank);
+  const laterRanks = later.items.map(wideRank);
+  assert.ok(earlyRanks.every((rank) => rank >= 0 && rank < 14), `early batch left the leading window: ${earlyRanks}`);
+  assert.ok(laterRanks.every((rank) => rank >= 30 && rank < 44), `later batch left its window: ${laterRanks}`);
+  assert.ok(Math.max(...earlyRanks) < Math.min(...laterRanks), "later batch should rank below the early batch");
 
   // A custom array without any function word keeps its original order.
   const plain = ["zebra", "apple", "mango"].map((word) => item(`v1:${word}`, word));

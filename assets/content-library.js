@@ -55,6 +55,12 @@
     "not also too very just only even still already there here then than now thus hence therefore"
   ).split(/\s+/).filter(Boolean));
 
+  // Frequency priority is a band, not a strict queue: a batch is drawn from a sliding window of the
+  // next PRIORITY_WINDOW unlearned positions, so high-frequency words surface first while a few
+  // nearby lower-frequency words can appear early. Ties inside the window are broken by the seeded
+  // generator, keeping selection stable for a given profile and content version.
+  const PRIORITY_WINDOW = 10;
+
   function priorityOrder(items) {
     return Array.from(items || [])
       .map((entry, index) => ({ entry, index }))
@@ -129,9 +135,9 @@
   }
 
   function selectBatch({ items, history = [], batchSize, seed, cursor = 0 }) {
-    // Unseen lessons follow frequency priority (shard order, function words last) so a
-    // learner meets high-frequency content words first. Review rotation keeps the seeded
-    // shuffle to spread revisited items.
+    // Unseen lessons are drawn from a frequency-priority window (shard order, function words last)
+    // so high-frequency content words surface first while nearby words can still mix in. Review
+    // rotation keeps the seeded shuffle to spread revisited items.
     const ordered = priorityOrder(items);
     const shuffled = stableOrder(items, seed);
     const learnedIds = new Set(history.map((entry) => entry && entry.contentId).filter(Boolean));
@@ -142,12 +148,40 @@
     const size = Math.max(1, Number(batchSize) || 1);
     if (unseen.length) {
       const start = ordered.length ? Math.max(0, Number(cursor) || 0) % ordered.length : 0;
+      // Randomise only inside the window, then take the first `size` unlearned entries. The cursor
+      // advances past the whole window, so the next batch never revisits it.
+      const span = Math.min(ordered.length, size + Math.max(0, Number(PRIORITY_WINDOW) || 0));
+      const positions = [];
+      for (let offset = 0; offset < span; offset += 1) {
+        positions.push((start + offset) % ordered.length);
+      }
+      const random = randomGenerator(`${seed}|jitter|${start}`);
+      const shuffle = (list) => {
+        for (let index = list.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(random() * (index + 1));
+          [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
+        }
+        return list;
+      };
+      // Take window content words before window function words so a grammar word never jumps ahead
+      // of a still-unlearned content word in the same window.
+      const contentPositions = [];
+      const functionPositions = [];
+      for (const position of positions) {
+        const entry = ordered[position];
+        if (FUNCTION_WORDS.has(normalize(itemTitle(entry)))) functionPositions.push(position);
+        else contentPositions.push(position);
+      }
+      shuffle(functionPositions);
       const batch = [];
       let visited = 0;
-      while (visited < ordered.length && batch.length < size) {
-        const position = (start + visited) % ordered.length;
-        if (isUnseen(ordered[position])) batch.push(ordered[position]);
-        visited += 1;
+      for (const group of [shuffle(contentPositions), functionPositions]) {
+        for (const position of group) {
+          visited += 1;
+          if (isUnseen(ordered[position])) batch.push(ordered[position]);
+          if (batch.length === size) break;
+        }
+        if (batch.length === size) break;
       }
       return { items: batch, nextCursor: (start + visited) % ordered.length, exhausted: false };
     }

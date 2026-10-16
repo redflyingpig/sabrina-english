@@ -1012,7 +1012,7 @@
     };
 
     const modeSubtitles = {
-      A: "今天的 5 个单词：先会读，再会用。",
+      A: "今天的 10 个单词：先会读，再会用。",
       B: "今天的 3 个常用短语：放进真实对话里。",
       C: "今天的 1 个句式：换几个词就能反复使用。"
     };
@@ -1020,7 +1020,7 @@
     const today = new Date();
     const todayKey = formatDateKey(today);
     const mode = pickDailyMode(todayKey);
-    const batchSizes = { A: 5, B: 3, C: 1 };
+    const batchSizes = { A: 10, B: 3, C: 1 };
     let contentLibrary = { A: [], B: [], C: [] };
     let contentVersion = "unknown";
     let lessonIsReview = false;

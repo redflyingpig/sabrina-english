@@ -48,13 +48,14 @@ class FrontendContractTest(unittest.TestCase):
         self.assertNotIn("SUPABASE_", self.html)
         self.assertNotIn("callProfileRpc", self.html)
 
-    def test_login_form_has_owner_sabrina_max_and_pin(self):
+    def test_login_form_has_owner_sabrina_max_without_pin(self):
         select = self.attributes_for_id("profileNameInput")
-        pin = self.attributes_for_id("profilePinInput")
         self.assertEqual("select", next(tag for tag, attrs in self.elements.elements if attrs.get("id") == "profileNameInput"))
-        self.assertEqual("password", pin["type"])
-        self.assertEqual("6", pin["minlength"])
-        self.assertEqual("64", pin["maxlength"])
+        self.assertNotIn('id="profilePinInput"', self.html)
+        self.assertNotIn("profilePinInput", self.function_body("loginProfile"))
+        self.assertIn("body: { username }", self.function_body("loginProfile"))
+        self.assertIn('error.payload?.error === "unknown_profile"', self.function_body("loginProfile"))
+        self.assertIn("连接失败，请稍后再试。", self.function_body("loginProfile"))
         for name in ("Owner", "Sabrina", "Max"):
             self.assertIn(f'value="{name}"', self.html)
         self.assertTrue(select)

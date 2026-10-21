@@ -28,7 +28,7 @@ class AdminBackupTest(unittest.TestCase):
         store.initialize()
         return store
 
-    def test_init_creates_exactly_three_profiles_and_prints_pins_once(self):
+    def test_init_creates_exactly_three_profiles_without_printing_compatibility_pins(self):
         output = io.StringIO()
 
         created = init_profiles(self.data_dir, output)
@@ -37,7 +37,8 @@ class AdminBackupTest(unittest.TestCase):
         self.assertEqual(3, len(set(created.values())))
         for name, pin in created.items():
             self.assertRegex(pin, r"^[0-9]{8}$")
-            self.assertIn(f"{name}: {pin}", output.getvalue())
+            self.assertNotIn(pin, output.getvalue())
+        self.assertIn("username-only login", output.getvalue())
         with sqlite3.connect(self.data_dir / "sabrina.db") as connection:
             names = [
                 row[0]

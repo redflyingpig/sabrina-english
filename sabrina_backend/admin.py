@@ -48,12 +48,12 @@ def init_profiles(data_dir: Path, output: TextIO = sys.stdout) -> Dict[str, str]
         store.create_profile(name, pin)
         created[name] = pin
     if created:
-        output.write("Initial PINs (shown once):\n")
-        for name in PROFILE_NAMES:
-            if name in created:
-                output.write(f"{name}: {created[name]}\n")
+        output.write(
+            "Profiles created. The website uses username-only login; "
+            "compatibility PINs are not shown or used.\n"
+        )
     else:
-        output.write("Profiles already initialized; no PINs were changed.\n")
+        output.write("Profiles already initialized.\n")
     return created
 
 

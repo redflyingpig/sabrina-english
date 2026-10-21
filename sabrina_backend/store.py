@@ -177,6 +177,20 @@ class Store:
             return None
         return {"id": row["id"], "display_name": row["display_name"]}
 
+    def find_profile(self, username: str) -> Optional[Dict[str, Any]]:
+        try:
+            normalized = self.normalize_username(username)
+        except ValueError:
+            return None
+        with self._connect() as connection:
+            row = connection.execute(
+                "select id, display_name from profiles where username_normalized = ?",
+                (normalized,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {"id": row["id"], "display_name": row["display_name"]}
+
     def reset_pin(self, username: str, pin: str) -> str:
         normalized = self.normalize_username(username)
         self.validate_pin(pin)

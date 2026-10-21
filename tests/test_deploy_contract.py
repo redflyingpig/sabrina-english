@@ -110,7 +110,7 @@ class DeployContractTest(unittest.TestCase):
         for heading in (
             "安装与升级",
             "初始化三个档案",
-            "重置 PIN",
+            "选择用户名登录",
             "健康检查",
             "日志",
             "备份",

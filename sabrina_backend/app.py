@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import ipaddress
 import json
 import logging
 import mimetypes
 import os
 import re
 import sqlite3
-import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -22,8 +20,6 @@ from .store import Store, VersionConflict
 
 
 MAX_BODY_BYTES = 4 * 1024 * 1024
-LOGIN_FAILURE_LIMIT = 5
-LOGIN_FAILURE_WINDOW_SECONDS = 10 * 60
 CONTENT_SECURITY_POLICY = (
     "default-src 'self'; "
     "script-src 'self' 'unsafe-inline'; "
@@ -69,7 +65,6 @@ class SabrinaHTTPServer(ThreadingHTTPServer):
         self.wordbook_dir = self.data_dir / "wordbook"
         self.store = Store(self.data_dir / "sabrina.db")
         self.store.initialize()
-        self.login_failures: Dict[Tuple[str, str], list] = {}
         self.public_origin = os.environ.get(
             "SABRINA_PUBLIC_ORIGIN", "https://sabrina.redflyingpig.com"
         ).rstrip("/")
@@ -280,32 +275,13 @@ class SabrinaHandler(BaseHTTPRequestHandler):
         if payload is None:
             return
         username = payload.get("username")
-        pin = payload.get("pin")
-        if not isinstance(username, str) or not isinstance(pin, str):
-            self._error(400, "invalid_request", "Username and PIN are required")
+        if not isinstance(username, str):
+            self._error(400, "invalid_request", "Username is required")
             return
-        try:
-            normalized = self.server.store.normalize_username(username)
-        except ValueError:
-            normalized = ""
-        key = (self._client_ip(), normalized)
-        now = time.monotonic()
-        failures = [
-            timestamp
-            for timestamp in self.server.login_failures.get(key, [])
-            if now - timestamp < LOGIN_FAILURE_WINDOW_SECONDS
-        ]
-        if len(failures) >= LOGIN_FAILURE_LIMIT:
-            self.server.login_failures[key] = failures
-            self._error(429, "rate_limited", "Too many failed login attempts")
-            return
-        profile = self.server.store.authenticate(username, pin)
+        profile = self.server.store.find_profile(username)
         if profile is None:
-            failures.append(now)
-            self.server.login_failures[key] = failures
-            self._error(401, "invalid_credentials", "Username or PIN is incorrect")
+            self._error(401, "unknown_profile", "Profile not found")
             return
-        self.server.login_failures.pop(key, None)
         token = self.server.store.create_session(profile["id"])
         self._send_json(
             200,
@@ -412,16 +388,6 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
-
-    def _client_ip(self) -> str:
-        peer = self.client_address[0]
-        if peer not in {"127.0.0.1", "::1"}:
-            return peer
-        forwarded = self.headers.get("CF-Connecting-IP", "").strip()
-        try:
-            return str(ipaddress.ip_address(forwarded)) if forwarded else peer
-        except ValueError:
-            return peer
 
     @staticmethod
     def _valid_state(state: Any) -> bool:

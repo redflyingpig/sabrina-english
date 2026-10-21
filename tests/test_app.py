@@ -65,9 +65,9 @@ class AppTest(unittest.TestCase):
             parsed = body.decode("utf-8")
         return response.status, result_headers, parsed
 
-    def login(self, username="Owner", pin="123456"):
+    def login(self, username="Owner"):
         status, _, body = self.request(
-            "POST", "/api/auth/login", {"username": username, "pin": pin}
+            "POST", "/api/auth/login", {"username": username}
         )
         self.assertEqual(200, status)
         return body["token"]
@@ -139,7 +139,7 @@ class AppTest(unittest.TestCase):
 
     def test_wordbook_serves_data_and_pages_to_signed_in_profile(self):
         self.install_wordbook()
-        token = self.login("Sabrina", "234567")
+        token = self.login("Sabrina")
         status, headers, body = self.request("GET", "/api/wordbook/data", token=token)
         self.assertEqual(200, status)
         self.assertEqual([{"day": 1, "words": []}], body)
@@ -187,7 +187,7 @@ class AppTest(unittest.TestCase):
         self.assertEqual("wordbook_unavailable", body["error"])
 
     def test_profile_state_round_trips_wordbook_progress(self):
-        token = self.login("Max", "345678")
+        token = self.login("Max")
         state = {
             "history": [],
             "favorites": [],
@@ -200,7 +200,7 @@ class AppTest(unittest.TestCase):
         status, _, loaded = self.request("GET", "/api/profile", token=token)
         self.assertEqual(state["wordbook"], loaded["state"]["wordbook"])
 
-        other = self.login("Sabrina", "234567")
+        other = self.login("Sabrina")
         status, _, theirs = self.request("GET", "/api/profile", token=other)
         self.assertNotIn("wordbook", theirs["state"])
 
@@ -277,7 +277,7 @@ class AppTest(unittest.TestCase):
         connection.request(
             "POST",
             "/api/auth/login",
-            body=json.dumps({"username": "Sabrina", "pin": "234567"}),
+            body=json.dumps({"username": "Sabrina"}),
             headers={"Content-Type": "application/json"},
         )
         response = connection.getresponse()
@@ -328,25 +328,9 @@ class AppTest(unittest.TestCase):
         self.assertEqual(400, status)
         self.assertEqual("invalid_profile_state", body["error"])
 
-    def test_cloudflare_client_ip_gets_its_own_rate_limit_bucket(self):
-        for _ in range(5):
-            self.request(
-                "POST",
-                "/api/auth/login",
-                {"username": "Owner", "pin": "wrong"},
-                headers={"CF-Connecting-IP": "203.0.113.10"},
-            )
-        status, _, _ = self.request(
-            "POST",
-            "/api/auth/login",
-            {"username": "Owner", "pin": "123456"},
-            headers={"CF-Connecting-IP": "203.0.113.11"},
-        )
-        self.assertEqual(200, status)
-
     def test_token_cannot_select_another_profile(self):
         owner_token = self.login()
-        sabrina_token = self.login("Sabrina", "234567")
+        sabrina_token = self.login("Sabrina")
         self.request(
             "PUT",
             "/api/profile",
@@ -403,30 +387,18 @@ class AppTest(unittest.TestCase):
         status, _, body = self.request(
             "POST",
             "/api/auth/login",
-            {"username": "Owner", "pin": "123456"},
+            {"username": "Owner"},
             headers={"Origin": "https://evil.example"},
         )
         self.assertEqual(403, status)
         self.assertEqual("forbidden_origin", body["error"])
 
-    def test_failed_logins_are_rate_limited_per_ip_and_username(self):
-        for _ in range(5):
-            status, _, body = self.request(
-                "POST", "/api/auth/login", {"username": "Owner", "pin": "wrong-pin"}
-            )
-            self.assertEqual(401, status)
-            self.assertEqual("invalid_credentials", body["error"])
-
+    def test_unknown_username_is_rejected_without_creating_a_session(self):
         status, _, body = self.request(
-            "POST", "/api/auth/login", {"username": "Owner", "pin": "wrong-pin"}
+            "POST", "/api/auth/login", {"username": "Unknown"}
         )
-        self.assertEqual(429, status)
-        self.assertEqual("rate_limited", body["error"])
-
-        status, _, _ = self.request(
-            "POST", "/api/auth/login", {"username": "Sabrina", "pin": "234567"}
-        )
-        self.assertEqual(200, status)
+        self.assertEqual(401, status)
+        self.assertEqual("unknown_profile", body["error"])
 
     def test_api_security_headers_disable_caching(self):
         status, headers, _ = self.request("GET", "/api/health")

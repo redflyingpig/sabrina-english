@@ -64,6 +64,15 @@ class StoreTest(unittest.TestCase):
         self.assertIsNone(self.store.authenticate("Owner", "wrong pin"))
         self.assertIsNotNone(self.store.authenticate("Owner", "correct horse"))
 
+    def test_profile_can_be_resolved_by_username_without_pin(self):
+        profile_id = self.store.create_profile("Sabrina", "123456")
+
+        profile = self.store.find_profile("  sABRINA ")
+
+        self.assertEqual(profile_id, profile["id"])
+        self.assertEqual("Sabrina", profile["display_name"])
+        self.assertIsNone(self.store.find_profile("Unknown"))
+
     def test_session_is_hashed_scoped_and_expires(self):
         owner_id = self.store.create_profile("Owner", "123456")
         token = self.store.create_session(owner_id)

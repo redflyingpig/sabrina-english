@@ -971,7 +971,7 @@
         <p class="eyebrow">Your study profile</p>
         <h2>进入学习档案</h2>
       </div>
-      <p>选择你的学习档案并输入 PIN。换手机或电脑时登录同一个档案，就能继续学习。</p>
+      <p>选择你的学习档案即可进入。换手机或电脑时选择同一个用户名，就能继续学习。</p>
       <div class="profile-field">
         <label for="profileNameInput">学习用户名</label>
         <select id="profileNameInput" name="profileName" autocomplete="username" required>
@@ -980,11 +980,7 @@
           <option value="Max">Max</option>
         </select>
       </div>
-      <div class="profile-field">
-        <label for="profilePinInput">PIN</label>
-        <input id="profilePinInput" name="profilePin" type="password" minlength="6" maxlength="64" inputmode="numeric" autocomplete="current-password" required>
-      </div>
-      <div class="profile-note">PIN 只用于登录，不会写进链接或保存在浏览器里。</div>
+      <div class="profile-note">这是家庭内部使用的学习工具，请选择自己的档案。</div>
       <button class="primary-btn" type="submit">进入学习空间</button>
     </form>
   </dialog>
@@ -1073,7 +1069,6 @@
     const profileDialog = document.getElementById("profileDialog");
     const profileForm = document.getElementById("profileForm");
     const profileNameInput = document.getElementById("profileNameInput");
-    const profilePinInput = document.getElementById("profilePinInput");
 
     dateText.textContent = new Intl.DateTimeFormat("en-US", {
       weekday: "short",
@@ -1190,9 +1185,8 @@
     async function loginProfile(event) {
       event.preventDefault();
       const username = profileNameInput.value;
-      const pin = profilePinInput.value;
-      if (!username || pin.length < 6 || pin.length > 64) {
-        showToast("请输入有效的 PIN。");
+      if (!username) {
+        showToast("请选择学习用户名。");
         return;
       }
       const submitButton = profileForm.querySelector('button[type="submit"]');
@@ -1200,14 +1194,13 @@
       try {
         const result = await apiRequest("/api/auth/login", {
           method: "POST",
-          body: { username, pin },
+          body: { username },
           authenticated: false
         });
         resetSessionSync();
         sessionToken = result.token;
         localStorage.setItem(SESSION_KEY, sessionToken);
         setActiveProfile(result.profile.display_name);
-        profilePinInput.value = "";
         profileDialog.close();
         profileBar.hidden = false;
         profileName.textContent = activeProfile.name;
@@ -1219,8 +1212,10 @@
         await loadContentLibrary();
         refreshWordbookForSession();
       } catch (error) {
-        showToast(error.status === 429 ? "尝试次数太多，请稍后再试。" : "用户名或 PIN 不正确。");
-        profilePinInput.select();
+        showToast(error.payload?.error === "unknown_profile"
+          ? "找不到这个学习档案。"
+          : "连接失败，请稍后再试。");
+        profileNameInput.focus();
       } finally {
         submitButton.disabled = false;
       }
@@ -1229,7 +1224,7 @@
     async function copyUserLink() {
       try {
         await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}`);
-        showToast("网站链接已复制；PIN 不会包含在链接中。");
+        showToast("网站链接已复制。");
       } catch {
         window.prompt("复制这个网站链接：", `${window.location.origin}${window.location.pathname}`);
       }
@@ -1789,7 +1784,7 @@
           profileDialog.setAttribute("open", "");
         }
       }
-      profilePinInput.focus();
+      profileNameInput.focus();
     }
 
     async function logoutProfile() {

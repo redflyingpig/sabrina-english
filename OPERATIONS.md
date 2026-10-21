@@ -19,15 +19,11 @@ python3 -m unittest discover -v
 SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin init-profiles
 ```
 
-这会创建 `Owner`、`Sabrina`、`Max`。初始 PIN 只显示一次，请立即存入密码管理器。
+这会创建 `Owner`、`Sabrina`、`Max`。网站只需选择用户名即可登录；数据库中的旧 PIN 字段仅为兼容现有 schema 保留，不再参与网站认证。
 
-## 重置 PIN
+## 选择用户名登录
 
-```sh
-SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin reset-pin Sabrina
-```
-
-末尾名字也可以换成 `Owner` 或 `Max`。
+打开网站后选择 `Owner`、`Sabrina` 或 `Max` 即可进入对应档案。用户名只用于区分学习记录，不提供访问控制。
 
 ## 健康检查
 

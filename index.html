@@ -1158,6 +1158,17 @@
           C: library.patterns
         };
         contentVersion = library.version;
+        // Wordbook-first: once signed in, the scanned book's words lead the daily vocabulary pool and
+        // ECDICT backfills after them. The book is scanned material served only to signed-in
+        // profiles, so it is fetched at runtime and never bundled into content/ or git.
+        const wordbookDays = await loadWordbookDays();
+        if (wordbookDays) {
+          contentLibrary.A = SabrinaContent.buildLessonPool({
+            vocabulary: library.vocabulary,
+            wordbookDays,
+            wordbookEntries: getWordbook().entries
+          });
+        }
         const selection = selectNextLessonSet(mode, lessonSetIndex, getHistory());
         lessonSetIndex = selection.nextCursor;
         lessonSet = selection.items;
@@ -1172,6 +1183,33 @@
         renderAll();
       } finally {
         retryContent.disabled = false;
+      }
+    }
+
+    // Cached per content version and session. Any failure degrades to ECDICT-only lessons rather
+    // than blocking the daily view.
+    let wordbookDaysCache = null;
+    let wordbookDaysVersion = "";
+    async function loadWordbookDays() {
+      if (wordbookDaysCache && wordbookDaysVersion === contentVersion) return wordbookDaysCache;
+      if (!sessionToken || !activeProfile) return null;
+      try {
+        const response = await fetch("/api/wordbook/data", {
+          headers: { Authorization: `Bearer ${sessionToken}` }
+        });
+        if (response.status === 401) {
+          handleExpiredSession();
+          return null;
+        }
+        if (!response.ok) return null;
+        const data = await response.json();
+        if (!Array.isArray(data) || !data.length) return null;
+        wordbookDaysCache = data;
+        wordbookDaysVersion = contentVersion;
+        return data;
+      } catch (error) {
+        console.warn("Wordbook data unavailable; using the base vocabulary pool", error);
+        return null;
       }
     }
 
@@ -1319,6 +1357,12 @@
     }
 
     function getDisplayItems(currentMode, set) {
+      // Wordbook provenance must survive this rebuild: markLearned() uses it to mirror the lesson
+      // into the wordbook tab's progress.
+      const origin = (item) => {
+        if (item.wordbookDay === undefined) return {};
+        return { wordbookDay: item.wordbookDay, wordbookWord: item.wordbookWord };
+      };
       if (currentMode === "A") {
         return set.map((item, index) => ({
           key: `${todayKey}:A:${index}:${item.word}`,
@@ -1330,7 +1374,8 @@
           note: item.translation,
           noteClass: "translation",
           examples: [item.example],
-          speech: `${item.word}. ${item.example}`
+          speech: `${item.word}. ${item.example}`,
+          ...origin(item)
         }));
       }
 
@@ -1345,7 +1390,8 @@
           note: item.usage,
           noteClass: "usage",
           examples: [item.example],
-          speech: `${item.expression}. ${item.example}`
+          speech: `${item.expression}. ${item.example}`,
+          ...origin(item)
         }));
       }
 
@@ -1359,7 +1405,8 @@
         note: item.explanation,
         noteClass: "usage",
         examples: item.examples,
-        speech: `${item.pattern}. ${item.examples.join(" ")}`
+        speech: `${item.pattern}. ${item.examples.join(" ")}`,
+        ...origin(item)
       }));
     }
 
@@ -1386,15 +1433,38 @@
         phonetic: item.phonetic || "",
         examples: item.examples,
         speech: item.speech,
+        wordbookDay: item.wordbookDay,
+        wordbookWord: item.wordbookWord,
         reviewedAt: new Date().toISOString()
       });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+      markWordbookStudied(item);
       updateStreak(todayKey);
       renderLesson();
       renderHistory();
       renderStreak();
       scheduleProfileSync();
       showToast("Saved to learned history.");
+    }
+
+    // Daily lessons and the wordbook tab share one progress model. Studying a book word here records
+    // it as FUZZY ("seen, needs practice") in the wordbook entries, so the two tabs agree and the
+    // word stops being offered as a new lesson. Promoting it to KNOWN stays with the wordbook quiz.
+    function markWordbookStudied(item) {
+      if (item.wordbookDay === undefined || !item.wordbookWord) return;
+      const state = getWordbook();
+      const key = SabrinaWordbook.entryKey(item.wordbookDay, item.wordbookWord);
+      const current = state.entries[key];
+      const target = WORDBOOK_FUZZY_LEVEL;
+      if (current && Number(current.level) >= target) return;
+      state.entries[key] = { level: target, at: new Date().toISOString() };
+      localStorage.setItem(WORDBOOK_KEY, JSON.stringify(state));
+      refreshWordbookAfterStudy();
+    }
+
+    function refreshWordbookAfterStudy() {
+      // Only repaint the wordbook when it is not mid-exercise; the next render picks up new state.
+      if (parseRoute().view === "wordbook") wordbook.reset();
     }
 
     function renderHistory() {
@@ -2145,6 +2215,8 @@
     }
 
     // ---------- 10天单词书 ----------
+    // Mirrors SabrinaWordbook's LEVELS (NEW=0, UNKNOWN=1, FUZZY=2, KNOWN=3); backend validates 0-3.
+    const WORDBOOK_FUZZY_LEVEL = 2;
     const wordbookView = document.getElementById("wordbookView");
     const wordbook = SabrinaWordbook.mount(wordbookView, {
       apiRequest,

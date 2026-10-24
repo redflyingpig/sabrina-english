@@ -163,11 +163,63 @@ function testFrequencyPriority() {
   );
 }
 
+function bookWord(word, extra = {}) {
+  return { w: word, senses: [["n.", extra.gloss || word]], topic: extra.topic || "food", ...extra };
+}
+
+function testWordbookLessonPool() {
+  const vocabulary = ["the", "menu", "apple", "banana", "fish"].map((word) => item(`v1:${word}`, word));
+  const days = [
+    { day: 1, words: [bookWord("menu"), bookWord("ham"), bookWord("main dish"), bookWord("menu")] },
+    { day: 2, words: [bookWord("basketball"), bookWord("menu")] },
+  ];
+
+  // Without a wordbook the pool is the plain ECDICT shard, unchanged.
+  const base = SabrinaContent.buildLessonPool({ vocabulary });
+  assert.deepEqual(base.map((entry) => entry.id), vocabulary.map((entry) => entry.id));
+
+  const pool = SabrinaContent.buildLessonPool({ vocabulary, wordbookDays: days });
+  const book = pool.filter((entry) => entry.wordbookDay !== undefined);
+  // 1969-entry scanned books repeat words across days; each word is taught once, at first sight.
+  assert.deepEqual(book.map((entry) => entry.word), ["menu", "ham", "main dish", "basketball"]);
+  assert.deepEqual(book.map((entry) => entry.id), ["wb:1:menu", "wb:1:ham", "wb:1:main dish", "wb:2:basketball"]);
+
+  // Book words lead; a word present in both pools is served from the book only, with its gloss.
+  assert.equal(pool[0].word, "menu");
+  assert.equal(pool[0].translation, "menu");
+  assert.equal(pool.filter((entry) => entry.word === "menu").length, 1);
+  assert.ok(pool.slice(book.length).every((entry) => ["the", "apple", "banana", "fish"].includes(entry.word)));
+
+  // Multi-word phrases keep their identity and have no invented phonetic.
+  const phrase = pool.find((entry) => entry.word === "main dish");
+  assert.equal(phrase.phonetic, "");
+  assert.equal(phrase.wordbookDay, 1);
+
+  // A KNOWN word leaves the pool; FUZZY stays eligible because it still needs practice.
+  const knownPool = SabrinaContent.buildLessonPool({
+    vocabulary,
+    wordbookDays: days,
+    wordbookEntries: { "1:ham": { level: 3, at: "2026-10-17T00:00:00Z" } },
+  });
+  assert.ok(!knownPool.some((entry) => entry.word === "ham"));
+  const fuzzyPool = SabrinaContent.buildLessonPool({
+    vocabulary,
+    wordbookDays: days,
+    wordbookEntries: { "1:ham": { level: 2, at: "2026-10-17T00:00:00Z" } },
+  });
+  assert.ok(fuzzyPool.some((entry) => entry.word === "ham"));
+
+  // Book entries are served in book order, never shuffled by the frequency window.
+  const batch = SabrinaContent.selectBatch({ items: pool, history: [], batchSize: 3, seed: "s", cursor: 0 });
+  assert.deepEqual(batch.items.map((entry) => entry.word), ["menu", "ham", "main dish"]);
+}
+
 (async () => {
   await testLoadAndIntegrity();
   testStableOrderAndSelection();
   testLegacyAndExhaustion();
   testFrequencyPriority();
+  testWordbookLessonPool();
   console.log("content library node tests: ok");
 })().catch((error) => {
   console.error(error);

@@ -61,15 +61,107 @@
   // generator, keeping selection stable for a given profile and content version.
   const PRIORITY_WINDOW = 10;
 
+  // Wordbook entries become lessons of their own: "wb:<day>:<word>" ids keep them disjoint from the
+  // "v1:*" ECDICT ids, and the book supplies its own Chinese gloss. Phonetics are reused from a
+  // matching ECDICT row when one exists; multi-word phrases such as "main dish" have none and must
+  // stay blank rather than be invented.
+  function wordbookLessonItems(days, options = {}) {
+    const vocabulary = Array.isArray(options.vocabulary) ? options.vocabulary : [];
+    const phoneticByWord = new Map();
+    for (const entry of vocabulary) {
+      const word = itemTitle(entry);
+      if (word && entry.phonetic) phoneticByWord.set(normalize(word), entry.phonetic);
+    }
+    const levelLabels = new Map();
+    const items = [];
+    for (const day of Array.isArray(days) ? days : []) {
+      if (!day || !Array.isArray(day.words)) continue;
+      const label = `Day ${day.day}`;
+      levelLabels.set(day.day, label);
+      for (const word of day.words) {
+        const title = word && typeof word.w === "string" ? word.w.trim() : "";
+        if (!title) continue;
+        const senses = Array.isArray(word.senses) ? word.senses : [];
+        const translation = senses
+          .map((sense) => (Array.isArray(sense) ? sense[1] : ""))
+          .filter(Boolean)
+          .join("；")
+          .slice(0, 120);
+        const phonetic = phoneticByWord.get(normalize(title)) || "";
+        items.push({
+          id: `wb:${day.day}:${title}`,
+          level: label,
+          topic: word.topic || "daily-life",
+          word: title,
+          phonetic,
+          translation: translation || "",
+          example: `I learned the word “${title}” in today's wordbook practice.`,
+          wordbookDay: day.day,
+          wordbookWord: title,
+        });
+      }
+    }
+    return items;
+  }
+
+  // A word only leaves the daily lesson pool once the wordbook marks it KNOWN (mastered). Entries at
+  // UNKNOWN or FUZZY are still eligible: marking a word fuzzy means "seen, needs practice", which is
+  // exactly when daily repetition helps rather than hurts.
+  const WORDBOOK_KNOWN_LEVEL = 3;
+
+  function wordbookKnownKeys(entries) {
+    const known = new Set();
+    for (const [key, entry] of Object.entries(entries || {})) {
+      const level = Number(entry && entry.level);
+      if (Number.isFinite(level) && level >= WORDBOOK_KNOWN_LEVEL) known.add(key);
+    }
+    return known;
+  }
+
+  function buildLessonPool({ vocabulary = [], wordbookDays = [], wordbookEntries = {} } = {}) {
+    const base = Array.from(vocabulary || []);
+    const book = wordbookLessonItems(wordbookDays, { vocabulary: base });
+    if (!book.length) return base;
+    const known = wordbookKnownKeys(wordbookEntries);
+    const bookSeen = new Set();
+    const bookWords = new Set();
+    // The scanned book lists some words on several days (1969 entries, 1507 distinct words), so a
+    // word is taught once, at its first appearance, rather than resurfacing as a new lesson.
+    const eligible = book.filter((entry) => {
+      const key = `${entry.wordbookDay}:${entry.wordbookWord}`;
+      const word = normalize(entry.word);
+      if (bookSeen.has(key) || bookWords.has(word) || known.has(key)) return false;
+      bookSeen.add(key);
+      bookWords.add(word);
+      return true;
+    });
+    // Book words take the lead; ECDICT backfills once the book is worked through. A word that
+    // exists in both pools is served from the book only, using the book's own gloss.
+    const backfill = base.filter(
+      (entry) => !bookWords.has(normalize(itemTitle(entry)))
+    );
+    return eligible.concat(backfill);
+  }
+
+  function isBookEntry(entry) {
+    return Boolean(entry && entry.wordbookDay !== undefined && entry.wordbookWord !== undefined);
+  }
+
   function priorityOrder(items) {
-    return Array.from(items || [])
+    // Wordbook lessons keep the book's Day-by-Day teaching order and are never re-sorted or
+    // shuffled. Only the ECDICT backfill is ordered by frequency band with function words last.
+    const list = Array.from(items || []);
+    const book = list.filter(isBookEntry);
+    const backfill = list
       .map((entry, index) => ({ entry, index }))
+      .filter((candidate) => !isBookEntry(candidate.entry))
       .sort((left, right) => {
         const leftFunction = FUNCTION_WORDS.has(normalize(itemTitle(left.entry))) ? 1 : 0;
         const rightFunction = FUNCTION_WORDS.has(normalize(itemTitle(right.entry))) ? 1 : 0;
         return leftFunction - rightFunction || left.index - right.index;
       })
       .map((candidate) => candidate.entry);
+    return book.concat(backfill);
   }
 
   function hashSeed(value) {
@@ -135,8 +227,8 @@
   }
 
   function selectBatch({ items, history = [], batchSize, seed, cursor = 0 }) {
-    // Unseen lessons are drawn from a frequency-priority window (shard order, function words last)
-    // so high-frequency content words surface first while nearby words can still mix in. Review
+    // Two segments: wordbook lessons keep the book's teaching order and are served straight through;
+    // the ECDICT backfill keeps the frequency-priority window with nearby-word mixing. Review
     // rotation keeps the seeded shuffle to spread revisited items.
     const ordered = priorityOrder(items);
     const shuffled = stableOrder(items, seed);
@@ -147,43 +239,58 @@
     const unseen = ordered.filter(isUnseen);
     const size = Math.max(1, Number(batchSize) || 1);
     if (unseen.length) {
-      const start = ordered.length ? Math.max(0, Number(cursor) || 0) % ordered.length : 0;
-      // Randomise only inside the window, then take the first `size` unlearned entries. The cursor
-      // advances past the whole window, so the next batch never revisits it.
-      const span = Math.min(ordered.length, size + Math.max(0, Number(PRIORITY_WINDOW) || 0));
-      const positions = [];
-      for (let offset = 0; offset < span; offset += 1) {
-        positions.push((start + offset) % ordered.length);
-      }
-      const random = randomGenerator(`${seed}|jitter|${start}`);
-      const shuffle = (list) => {
-        for (let index = list.length - 1; index > 0; index -= 1) {
-          const swapIndex = Math.floor(random() * (index + 1));
-          [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
+      const bookCount = ordered.filter(isBookEntry).length;
+      const backfill = ordered.slice(bookCount);
+      const total = ordered.length;
+      const start = total ? Math.max(0, Number(cursor) || 0) % total : 0;
+      let batch = [];
+      let nextCursor = start;
+      if (start < bookCount) {
+        // Wordbook segment: take the next unlearned book entries in book order.
+        let index = start;
+        while (index < bookCount && batch.length < size) {
+          if (isUnseen(ordered[index])) batch.push(ordered[index]);
+          index += 1;
         }
-        return list;
-      };
-      // Take window content words before window function words so a grammar word never jumps ahead
-      // of a still-unlearned content word in the same window.
-      const contentPositions = [];
-      const functionPositions = [];
-      for (const position of positions) {
-        const entry = ordered[position];
-        if (FUNCTION_WORDS.has(normalize(itemTitle(entry)))) functionPositions.push(position);
-        else contentPositions.push(position);
+        nextCursor = index < total ? index : start;
       }
-      shuffle(functionPositions);
-      const batch = [];
-      let visited = 0;
-      for (const group of [shuffle(contentPositions), functionPositions]) {
-        for (const position of group) {
-          visited += 1;
-          if (isUnseen(ordered[position])) batch.push(ordered[position]);
+      if (batch.length < size && backfill.length) {
+        const backfillStart = start >= bookCount ? start - bookCount : 0;
+        const span = Math.min(backfill.length, size + Math.max(0, Number(PRIORITY_WINDOW) || 0));
+        const positions = [];
+        for (let offset = 0; offset < span; offset += 1) {
+          positions.push((backfillStart + offset) % backfill.length);
+        }
+        const random = randomGenerator(`${seed}|jitter|${backfillStart}`);
+        const shuffle = (list) => {
+          for (let index = list.length - 1; index > 0; index -= 1) {
+            const swapIndex = Math.floor(random() * (index + 1));
+            [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
+          }
+          return list;
+        };
+        // Take window content words before window function words so a grammar word never jumps
+        // ahead of a still-unlearned content word in the same window.
+        const contentPositions = [];
+        const functionPositions = [];
+        for (const position of positions) {
+          const entry = backfill[position];
+          if (FUNCTION_WORDS.has(normalize(itemTitle(entry)))) functionPositions.push(position);
+          else contentPositions.push(position);
+        }
+        shuffle(functionPositions);
+        let visited = 0;
+        for (const group of [shuffle(contentPositions), functionPositions]) {
+          for (const position of group) {
+            visited += 1;
+            if (isUnseen(backfill[position])) batch.push(backfill[position]);
+            if (batch.length === size) break;
+          }
           if (batch.length === size) break;
         }
-        if (batch.length === size) break;
+        nextCursor = bookCount + ((backfillStart + visited) % backfill.length);
       }
-      return { items: batch, nextCursor: (start + visited) % ordered.length, exhausted: false };
+      return { items: batch, nextCursor: nextCursor % total, exhausted: false };
     }
 
     const lastSeen = new Map();
@@ -259,5 +366,15 @@
     };
   }
 
-  return { load, stableOrder, priorityOrder, selectBatch, legacyIdentity, normalize };
+  return {
+    load,
+    stableOrder,
+    priorityOrder,
+    selectBatch,
+    legacyIdentity,
+    normalize,
+    wordbookLessonItems,
+    wordbookKnownKeys,
+    buildLessonPool,
+  };
 });

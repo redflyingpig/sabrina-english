@@ -146,6 +146,49 @@
 
 > 注意：报告前文「内容版本：`2026.10.16-3`」及其中哈希描述的是别名归一那一轮的在线状态。**当前线上内容版本为 `2026.10.16-5`**；各分片哈希自 `2026.10.16-3` 起未变，manifest SHA 见 `git show 9aeddf4:content/manifest.json` 的计算结果。
 
+## 单词书优先轮（commit `097ad4d`）
+
+**背景**：Sabrina 反馈 ECDICT 词库偏难。改为以「10天单词书」tab 引用的那本扫描词书为主词源，让每日课程与她在词书里的学习内容对齐。设计见 `docs/superpowers/specs/2026-10-17-wordbook-first-lessons-design.md`。
+
+**架构约束**：词书是扫描版书籍，数据在 `~/Library/Application Support/SabrinaEnglish/wordbook/data.json`，后端注释明确「never in git」，且 `/api/wordbook/data` 需登录才返回（未登录实测 401）。因此**不生成新的内容分片**，而是在客户端登录后运行时合并。
+
+**实现**
+
+- `assets/content-library.js`
+  - `wordbookLessonItems()`：把词书词条转成课程卡，id 为 `wb:<day>:<word>`，与 ECDICT 的 `v1:*` 隔离；释义用书上的 `senses`；音标复用同名 ECDICT 词，多词短语（`main dish`、`shaved ice`）音标留空、不编造。
+  - `buildLessonPool()`：词书词优先、ECDICT 兜底；同词只出一次且用书上释义；书内跨天重复的单词只教第一次（1969 条目 → 1507 唯一词）。
+  - `wordbookKnownKeys()` + `selectBatch()` 两段式：词书段按书的 Day 顺序直取（不参与频率窗口随机），ECDICT 段保留原有频率窗口逻辑。
+- `index.html`
+  - 登录后拉取 `/api/wordbook/data` 并入选词池；请求失败静默回退为纯 ECDICT，不阻塞主 tab。
+  - `markLearned()` 学完词书词条时同步写入词书 `entries`（`level=2 FUZZY`）并触发既有 `scheduleProfileSync()`。
+  - `getDisplayItems()` 保留 `wordbookDay/wordbookWord`（初版遗漏该字段导致反向同步失效，已修复）。
+- `content/manifest.json` 版本升为 `2026.10.17-1`。
+
+**进度双向联动语义**：每日课程只把词标为 `FUZZY`（见过、需巩固）；提升到 `KNOWN` 仍由词书测验/拼写模块负责，两个 tab 不互相覆盖。**只有 `KNOWN` 的词会退出每日候选**——`FUZZY`/`UNKNOWN` 仍会复现，符合「需要练习的词更该重复」的直觉。
+
+**实测数据**
+
+| 指标 | 数值 |
+|---|---:|
+| 词书条目 / 唯一词 | 1969 / 1507 |
+| ECDICT 音标覆盖 | 1893/1969（96%） |
+| 与现有 4000 词重叠 | 1125 |
+| 每天 10 词可支撑 | 约 150 天 |
+
+**线上核验**（真实浏览器，Max 档案临时会话；验证后已删除会话并还原 Max 数据）
+
+- 模式 A、进度 `0 / 10`、**卡片数 10**。
+- 卡片全部来自词书，且在书序中的位置为 `991–1000` 连续递增 → **确实按 Day 顺序推进**。
+- 学完第一张卡（`border`）后词书写入 `{"6:border": {"level": 2}}` → **反向同步生效**。
+- 把该书词标为 `KNOWN(3)` 后重载，该词**不再出现在每日课程**（下一次为 `clock…article`）→ **正向过滤生效**。
+- 未登录访问 `/api/wordbook/data` → `401`。
+
+**验证与部署**
+
+- `python3 -m unittest discover` → 71 项通过；`node tests/content_library_node_test.js` → ok；`node tests/wordbook_node_test.js` → ok；`validate_content.py content` → ok。
+- `./deploy/install.sh` → 成功。
+- 线上内容版本 `2026.10.17-1`。
+
 ## 发现问题（未在本轮修复）
 
 **`erm` 词条翻译错误**：ECDICT 中 `erm` 的 `.bnc` 排名为 133、无 `collins` 等级，translations 为 `abbr. ermine 貂; erythromycin 红霉素`，即被当作缩写收录，而非口语填充词。生成器的 `_translation()` 会剥掉 `abbr.` 前缀，导致它以「生僻缩写」形态进入 A1（优先级序第 50 位），实测会出现在第 4 天的候选里。同批检查中 `oh`（collins 5）、`yeah`（bnc 103）为正常口语词，无需处理。

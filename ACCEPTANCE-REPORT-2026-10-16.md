@@ -189,6 +189,37 @@
 - `./deploy/install.sh` → 成功。
 - 线上内容版本 `2026.10.17-1`。
 
+## 模板族轮转修复（commit `1e971f6`）
+
+**问题**（用户反馈）：短语和句式模式「完成今天的，换下一批，再换下一批，一直重复」。
+
+**根因**：内容本身没有重复（250 个唯一句式、600 个唯一短语），但**内容是从少数模板批量生成的**：
+
+| 目录 | 条目 | 真实模板 | 结构 |
+|---|---:|---:|---|
+| `patterns.json` | 250 | **39 种骨架** | `I need to + verb at home` / `at work` / `before breakfast`… 每种骨架 10 条 |
+| `expressions.json` | 600 | **20 种开头** | `Could you check …` 30 条、`Can you help …` 30 条… |
+
+生成器按模板连续排列，而 `selectBatch()` 顺序取词，所以连续几批都落在同一模板上——句式连续多天都是 `I need to …`，短语连续 18 条都是 `Could you check …`。
+
+**修复**：新增 `diversifyOrder()`，在选词前按**模板族**重排：
+
+- **环形轮转**：每个族轮流取一条，取完一个族就轮到下一个族，全部族轮过一遍才回头。
+  （早期尝试的「只要与上一条不同」贪心算法会在两个族之间来回跳，实测 20 批只覆盖 4 个族，已弃用。）
+- **族内种子洗牌**：族内 30 条先打散，避免同一批里出现多条同族。
+- **族键按模式区分**（`templateFamilyKey`）：句式取 `+ verb` 前的模板头（`I need` / `I want` 分开计）；短语取开头三个词（`could you check` / `can you help` 分开计），否则会把对象词也当族、切得过细。
+
+**线上实测**（加载生产环境 `content-library.js` 与生产内容）：
+
+| 模式 | 25 批条数 | 覆盖模板族 | 同族相邻 |
+|---|---:|---:|---:|
+| B 短语（每批 3） | 75 | **27** | **0** |
+| C 句式（每批 1） | 25 | **19** | **0** |
+
+修复前句式的族序列为 `i need → i want → i need → i want → i need → i need …`（20 批仅 4 族、8 次相邻重复）；修复后前 10 批即覆盖 `i usually / i rarely / i plan / i hope / do you mind / how long does it take / would you like / how often do you / there is a / there are`。
+
+**验证与部署**：`python3 -m unittest discover` → 85 项通过（含他人新增的廣東話测试）；三个 node 测试均 ok；`validate_content.py` ok；`./deploy/install.sh` 成功；线上版本 `2026.10.17-2`。
+
 ## 发现问题（未在本轮修复）
 
 **`erm` 词条翻译错误**：ECDICT 中 `erm` 的 `.bnc` 排名为 133、无 `collins` 等级，translations 为 `abbr. ermine 貂; erythromycin 红霉素`，即被当作缩写收录，而非口语填充词。生成器的 `_translation()` 会剥掉 `abbr.` 前缀，导致它以「生僻缩写」形态进入 A1（优先级序第 50 位），实测会出现在第 4 天的候选里。同批检查中 `oh`（collins 5）、`yeah`（bnc 103）为正常口语词，无需处理。

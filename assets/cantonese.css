@@ -1,0 +1,319 @@
+/* 廣東話 tab. Every rule is scoped to #cantoneseView so it cannot leak into the English pages. */
+#cantoneseView {
+  --bg: #faf6ef;
+  --paper: #fffdf9;
+  --ink: #2a2420;
+  --muted: #6f655c;
+  --line: #e6ddd0;
+  --red: #b8432f;
+  --red-ink: #8f2f1f;
+  --red-soft: #f6e3dc;
+  --green: #2f7a4a;
+  --green-soft: #e1f0e5;
+  --amber: #9a6a12;
+  --amber-soft: #f7ecd2;
+  --jp: #2f5d8a;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(60, 40, 20, .06), 0 4px 14px rgba(60, 40, 20, .05);
+  --cjk: "PingFang HK", "Noto Sans HK", "Microsoft JhengHei", "Heiti TC", sans-serif;
+  
+  color-scheme: light;
+}
+#cantoneseView * { box-sizing: border-box; }
+#cantoneseView a { color: var(--red-ink); }
+#cantoneseView h1 { font-size: 1.6rem; line-height: 1.3; margin: .6em 0 .4em; }
+#cantoneseView h2 { font-size: 1.15rem; margin: 1.2em 0 .5em; }
+#cantoneseView h3 { font-size: 1.05rem; margin: 1em 0 .4em; }
+#cantoneseView button,
+#cantoneseView input,
+#cantoneseView select,
+#cantoneseView textarea { font: inherit; color: inherit; }
+#cantoneseView :focus-visible { outline: 3px solid var(--red); outline-offset: 2px; border-radius: 6px; }
+#cantoneseView [hidden] { display: none !important; }
+#cantoneseView .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+#cantoneseView .muted { color: var(--muted); font-size: .92rem; }
+#cantoneseView .small { font-size: .9rem; }
+#cantoneseView .ct-loading,
+#cantoneseView .ct-error { padding: 2rem 0; }
+#cantoneseView .ct-error { color: var(--red-ink); }
+#cantoneseView .warn { background: var(--amber-soft); color: #5d420c; padding: .7rem 1rem; border-radius: var(--radius); font-size: .92rem; }
+#cantoneseView .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .3em;
+  min-height: 44px; padding: .5rem 1.1rem; border-radius: 999px;
+  border: 1.5px solid var(--red); background: var(--red); color: #fff;
+  font-weight: 600; text-decoration: none; cursor: pointer;
+}
+#cantoneseView .btn:hover { background: var(--red-ink); border-color: var(--red-ink); }
+#cantoneseView .btn.ghost { background: transparent; color: var(--red-ink); }
+#cantoneseView .btn.ghost:hover { background: var(--red-soft); }
+#cantoneseView .btn.small { min-height: 36px; padding: .25rem .85rem; font-size: .9rem; }
+#cantoneseView .btn.big { min-height: 52px; width: 100%; font-size: 1.05rem; margin-top: 1rem; }
+#cantoneseView .btn.danger { border-color: #a33; color: #a33; }
+#cantoneseView .btn:disabled { opacity: .45; cursor: not-allowed; }
+#cantoneseView .btn.on { background: var(--red-ink); }
+#cantoneseView .btn.rec { background: #c22; border-color: #c22; animation: ct-pulse 1s infinite; }
+@keyframes ct-pulse { 50% { opacity: .65; } }
+#cantoneseView .ct-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0; }
+#cantoneseView .say {
+  flex: none; width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--paper); cursor: pointer; font-size: 1rem;
+}
+#cantoneseView .say:hover,
+#cantoneseView .say.on { background: var(--red-soft); border-color: var(--red); }
+#cantoneseView .toggles { display: flex; gap: .4rem; margin: .4rem 0 .8rem; }
+#cantoneseView .chip-toggle {
+  border: 1.5px solid var(--line); background: var(--paper); border-radius: 999px;
+  padding: .2rem .8rem; font-size: .88rem; cursor: pointer; min-height: 34px;
+}
+#cantoneseView .chip-toggle[aria-pressed="true"] { border-color: var(--jp); color: var(--jp); background: #e7eef6; }
+#cantoneseView .chip-toggle[aria-pressed="false"] { text-decoration: line-through; color: var(--muted); }
+#cantoneseView .yue { font-size: 1.12rem; }
+#cantoneseView .yue.big { display: block; font-size: 1.9rem; line-height: 1.35; font-weight: 600; }
+#cantoneseView .jp { display: block; color: var(--jp); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .9rem; letter-spacing: .01em; }
+#cantoneseView .zh { display: block; color: var(--muted); font-size: .95rem; }
+#cantoneseView .zh::before { content: "普 "; font-size: .72rem; border: 1px solid currentColor; border-radius: 4px; padding: 0 3px; margin-right: 4px; vertical-align: 2px; }
+#cantoneseView.hide-jp .items .jp,
+#cantoneseView.hide-jp .dstage .jp { visibility: hidden; }
+#cantoneseView.hide-zh .items .zh,
+#cantoneseView.hide-zh .dstage .zh { visibility: hidden; }
+#cantoneseView.hide-jp .items .jp:hover,
+#cantoneseView.hide-zh .items .zh:hover { visibility: visible; }
+#cantoneseView .card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.1rem; margin: 1rem 0; box-shadow: var(--shadow); }
+#cantoneseView .card h2 { margin-top: 0; }
+#cantoneseView .ct-hero { padding: .6rem 0 0; }
+#cantoneseView .ct-hero h1 { font-size: 2rem; margin: .1em 0; }
+#cantoneseView .date { color: var(--red); font-weight: 600; margin: 0; }
+#cantoneseView .lead { margin: 0; color: var(--muted); }
+#cantoneseView .tasks { list-style: none; padding: 0; margin: 0; }
+#cantoneseView .task { display: flex; align-items: center; gap: .8rem; padding: .7rem 0; border-top: 1px solid var(--line); }
+#cantoneseView .task:first-child { border-top: 0; }
+#cantoneseView .task > div { flex: 1; min-width: 0; }
+#cantoneseView .task b { display: block; font-weight: 600; }
+#cantoneseView .task small { color: var(--muted); }
+#cantoneseView .check {
+  flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--line); color: #fff; font-size: .8rem; font-weight: 700;
+}
+#cantoneseView .task.done .check,
+#cantoneseView a.done .check { background: var(--green); border-color: var(--green); }
+#cantoneseView .task.done b { color: var(--muted); }
+#cantoneseView .statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; text-align: center; }
+#cantoneseView .stat b { display: block; font-size: 1.35rem; color: var(--red-ink); }
+#cantoneseView .stat small { color: var(--muted); font-size: .8rem; }
+#cantoneseView .progress { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; margin: .8rem 0 .3rem; }
+#cantoneseView .progress span { display: block; height: 100%; background: var(--red); border-radius: 99px; transition: width .3s; }
+#cantoneseView .intro ul { padding-left: 1.1rem; }
+#cantoneseView .intro li { margin: .3rem 0; }
+#cantoneseView .ct-empty { text-align: center; }
+#cantoneseView .ct-empty .btn { margin: .3rem; }
+#cantoneseView h2.group { color: var(--red); font-size: 1rem; letter-spacing: .05em; }
+#cantoneseView .unit { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); margin: .6rem 0; box-shadow: var(--shadow); }
+#cantoneseView .unit summary {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .2rem .7rem;
+  padding: .85rem 1rem; cursor: pointer; list-style: none;
+}
+#cantoneseView .unit summary::-webkit-details-marker { display: none; }
+#cantoneseView .unit summary .progress { grid-column: 1 / -1; margin: .2rem 0 0; height: 5px; }
+#cantoneseView .unum { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--red-soft); color: var(--red-ink); font-weight: 700; }
+#cantoneseView .uname { font-weight: 600; }
+#cantoneseView .unit small { color: var(--muted); font-size: .82rem; }
+#cantoneseView .sec { padding: 0 1rem .6rem; }
+#cantoneseView .sec h3 { font-size: .95rem; color: var(--muted); font-weight: 600; }
+#cantoneseView .lessons { list-style: none; padding: 0; margin: 0; }
+#cantoneseView .lessons a {
+  display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: .6rem;
+  padding: .5rem .4rem; border-radius: 10px; text-decoration: none; color: var(--ink);
+}
+#cantoneseView .lessons a:hover { background: var(--bg); }
+#cantoneseView .lessons a small { color: var(--muted); font-size: .82rem; text-align: right; }
+#cantoneseView .lessons a.next { background: var(--red-soft); }
+#cantoneseView .lessons a.next .check { border-color: var(--red); color: var(--red); }
+#cantoneseView .crumbs { font-size: .88rem; color: var(--muted); margin-top: .8rem; }
+#cantoneseView .crumbs a { color: var(--muted); }
+#cantoneseView .lesson-head h1 { margin-bottom: .1em; }
+#cantoneseView .items > * { margin: 1rem 0; }
+#cantoneseView h3.sub { color: var(--red-ink); border-left: 4px solid var(--red); padding-left: .6rem; }
+#cantoneseView .text { margin: .6rem 0; }
+#cantoneseView .note { background: var(--amber-soft); border-radius: 10px; padding: .7rem .9rem; font-size: .95rem; }
+#cantoneseView .note b { color: var(--amber); }
+#cantoneseView .part { color: var(--muted); font-size: .88rem; }
+#cantoneseView .vlist,
+#cantoneseView .dlines,
+#cantoneseView .tones,
+#cantoneseView .qs,
+#cantoneseView .links,
+#cantoneseView .dlist,
+#cantoneseView .menu { list-style: none; padding: 0; margin: 0; }
+#cantoneseView .vrow {
+  display: grid; grid-template-columns: 2rem 1fr auto; grid-template-areas: "n main say" "n zh say";
+  align-items: center; gap: 0 .6rem; padding: .6rem .2rem; border-bottom: 1px solid var(--line);
+}
+#cantoneseView .vrow .num { grid-area: n; color: var(--muted); font-size: .8rem; text-align: right; }
+#cantoneseView .vrow .vmain { grid-area: main; }
+#cantoneseView .vrow .zh { grid-area: zh; }
+#cantoneseView .vrow .say { grid-area: say; }
+#cantoneseView .pblock { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: .4rem .9rem; }
+#cantoneseView .pair { padding: .45rem 0; border-bottom: 1px dashed var(--line); }
+#cantoneseView .pair:last-child { border-bottom: 0; }
+#cantoneseView .pline { display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem; }
+#cantoneseView .particle { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: .7rem .9rem; }
+#cantoneseView .particle header { display: flex; align-items: center; gap: .7rem; }
+#cantoneseView .particle header .jp { flex: 1; }
+#cantoneseView .pword { font-size: 1.6rem; font-weight: 700; color: var(--red-ink); }
+#cantoneseView .particle p { margin: .3rem 0 .2rem; color: var(--muted); font-size: .95rem; }
+#cantoneseView .dialogue { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: .6rem .9rem; }
+#cantoneseView .dialogue header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem; }
+#cantoneseView .dialogue h3 { margin: .3rem 0; }
+#cantoneseView .dialogue .ct-actions { margin: 0; }
+#cantoneseView .dline {
+  display: grid; grid-template-columns: 4.6rem 1fr auto; gap: .6rem; align-items: start;
+  padding: .55rem .3rem; border-bottom: 1px solid var(--line); border-radius: 8px; transition: background .2s;
+}
+#cantoneseView .dline:last-child { border-bottom: 0; }
+#cantoneseView .dline.now { background: var(--red-soft); }
+#cantoneseView .dline.mine .spk { background: var(--jp); color: #fff; }
+#cantoneseView .dline.hidden-line .dtext { filter: blur(7px); user-select: none; }
+#cantoneseView .spk { font-size: .82rem; font-weight: 600; color: var(--red-ink); background: var(--red-soft); border-radius: 6px; padding: .1rem .35rem; text-align: center; word-break: keep-all; }
+#cantoneseView .tones { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .5rem; }
+#cantoneseView .tones li { display: flex; align-items: center; gap: .4rem; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: .5rem .6rem; }
+#cantoneseView .tcell { flex: 1; display: grid; grid-template-columns: 1fr auto; align-items: center; }
+#cantoneseView .tcell .jp { grid-column: 1; }
+#cantoneseView .tcell .say { grid-row: 1 / 3; grid-column: 2; width: 32px; height: 32px; }
+#cantoneseView .tcell.changed .yue { color: var(--red-ink); font-weight: 600; }
+#cantoneseView .arrow { color: var(--muted); }
+#cantoneseView .chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+#cantoneseView .chipbtn {
+  border: 1px solid var(--line); background: var(--paper); border-radius: 10px; padding: .35rem .7rem;
+  cursor: pointer; font-size: 1.05rem; min-height: 40px;
+}
+#cantoneseView .chipbtn:hover { border-color: var(--red); background: var(--red-soft); }
+#cantoneseView .chipbtn small { display: block; color: var(--muted); font-size: .78rem; }
+#cantoneseView .phon { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: .4rem; }
+#cantoneseView .pcell { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: .4rem .5rem; display: flex; align-items: center; gap: .5rem; }
+#cantoneseView .pcell .letter { font-family: ui-monospace, Menlo, monospace; color: var(--jp); min-width: 2.6em; }
+#cantoneseView .pcell .chipbtn { padding: .1rem .4rem; min-height: 34px; margin: 1px; }
+#cantoneseView .tonechart { width: 100%; border-collapse: collapse; text-align: center; background: var(--paper); border-radius: 10px; overflow: hidden; }
+#cantoneseView .tonechart th,
+#cantoneseView .tonechart td { border: 1px solid var(--line); padding: .35rem .2rem; }
+#cantoneseView .tonechart thead th { background: var(--red-soft); font-size: .85rem; }
+#cantoneseView .tonechart .chipbtn { border: 0; background: none; }
+#cantoneseView .poem ol { list-style: none; padding: 0; text-align: center; }
+#cantoneseView .poem li { padding: .4rem; border-radius: 8px; }
+#cantoneseView .poem li.now { background: var(--red-soft); }
+#cantoneseView .poem .yue { font-size: 1.4rem; letter-spacing: .15em; }
+#cantoneseView .poem .ptitle .yue { font-size: 1.1rem; color: var(--muted); }
+#cantoneseView .links li { padding: .55rem 0; border-bottom: 1px solid var(--line); }
+#cantoneseView .links small { display: block; color: var(--muted); }
+#cantoneseView .near { display: grid; gap: .4rem; }
+#cantoneseView .ngroup { display: flex; flex-wrap: wrap; gap: .4rem; }
+#cantoneseView .nword { border: 1px solid var(--line); background: var(--paper); border-radius: 10px; padding: .3rem .7rem; cursor: pointer; text-align: left; min-height: 44px; }
+#cantoneseView .nword:hover { border-color: var(--red); }
+#cantoneseView .gamebox { background: var(--paper); border: 2px dashed var(--line); border-radius: var(--radius); padding: .8rem; margin-top: 1rem; }
+#cantoneseView .opts { display: flex; flex-wrap: wrap; gap: .5rem; margin: .7rem 0; }
+#cantoneseView .opts.col { flex-direction: column; }
+#cantoneseView .opt {
+  min-height: 48px; padding: .5rem 1rem; border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--paper); cursor: pointer; font-size: 1.15rem; text-align: left;
+}
+#cantoneseView .opt:hover { border-color: var(--red); }
+#cantoneseView .opt .zh::before { display: none; }
+#cantoneseView .opt.is-right { border-color: var(--green); background: var(--green-soft); }
+#cantoneseView .opt.is-wrong { border-color: #c44; background: #f8e0dd; }
+#cantoneseView .gstatus { min-height: 1.6em; font-weight: 600; }
+#cantoneseView .q { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .55rem 0; border-bottom: 1px solid var(--line); }
+#cantoneseView .q .jp { min-width: 9em; font-size: 1rem; }
+#cantoneseView .q input,
+#cantoneseView .q textarea,
+#cantoneseView .settings input,
+#cantoneseView .settings select {
+  border: 1.5px solid var(--line); border-radius: 10px; padding: .4rem .6rem; background: #fff; min-height: 42px;
+}
+#cantoneseView .q input { width: 7.5em; font-size: 1.05rem; }
+#cantoneseView .translate .q { flex-direction: column; align-items: stretch; }
+#cantoneseView .translate textarea { width: 100%; resize: vertical; }
+#cantoneseView .translate .btn { align-self: flex-start; }
+#cantoneseView .q.is-example { color: var(--muted); }
+#cantoneseView .fb { font-weight: 700; min-width: 1.5em; }
+#cantoneseView .fb.is-right { color: var(--green); }
+#cantoneseView .fb.is-wrong { color: var(--amber); }
+#cantoneseView .answer { flex-basis: 100%; background: var(--green-soft); border-radius: 10px; padding: .5rem .7rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+#cantoneseView .answer .pline { flex: 1; }
+#cantoneseView .tip { margin: .2rem 0 0; font-size: .9rem; color: var(--green); flex-basis: 100%; }
+#cantoneseView .picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem; }
+#cantoneseView .pickq { display: flex; align-items: center; gap: .4rem; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: .3rem .5rem; flex-wrap: wrap; }
+#cantoneseView .pickq .opts { margin: 0; }
+#cantoneseView .pickq .opt { min-height: 42px; padding: .2rem .7rem; }
+#cantoneseView .pickq .fb { flex-basis: 100%; font-size: .82rem; font-weight: 500; }
+#cantoneseView .pickq .num { color: var(--muted); font-size: .8rem; width: 1.6em; }
+#cantoneseView .lesson-foot { margin: 2rem 0 1rem; }
+#cantoneseView .pager { display: flex; justify-content: space-between; gap: .5rem; margin-top: .8rem; }
+#cantoneseView .revbar { display: flex; align-items: center; gap: .8rem; font-size: .88rem; color: var(--muted); }
+#cantoneseView .revbar .progress { flex: 1; margin: 0; }
+#cantoneseView .flash {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow);
+  padding: 1.4rem 1.2rem; margin: 1rem 0; min-height: 320px; display: flex; flex-direction: column; gap: .5rem;
+}
+#cantoneseView .kind { margin: 0; font-size: .8rem; color: var(--red); letter-spacing: .08em; }
+#cantoneseView .face { text-align: center; padding: .8rem 0; }
+#cantoneseView .face .jp { font-size: 1.1rem; margin-top: .3rem; }
+#cantoneseView .face .zh { font-size: 1.15rem; margin-top: .4rem; }
+#cantoneseView .face.back { border-top: 1px dashed var(--line); }
+#cantoneseView .ask { color: var(--muted); margin: 0 0 .4rem; }
+#cantoneseView .hint { color: var(--muted); font-size: .9rem; margin: .3rem 0 0; }
+#cantoneseView .face .note { text-align: left; }
+#cantoneseView .flash .replay { align-self: center; }
+#cantoneseView .grades { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; margin-top: .6rem; }
+#cantoneseView .grade { border: 1.5px solid var(--line); border-radius: 12px; background: var(--paper); padding: .5rem .2rem; cursor: pointer; min-height: 58px; }
+#cantoneseView .grade b { display: block; font-size: .98rem; }
+#cantoneseView .grade small { color: var(--muted); font-size: .78rem; }
+#cantoneseView .grade.again { border-color: #d9a39b; }
+#cantoneseView .grade.again b { color: #b33; }
+#cantoneseView .grade.hard b { color: var(--amber); }
+#cantoneseView .grade.good { border-color: #9cc7aa; }
+#cantoneseView .grade.good b { color: var(--green); }
+#cantoneseView .grade.easy b { color: var(--jp); }
+#cantoneseView .flash > a { align-self: center; }
+#cantoneseView p.big { font-size: 2rem; font-weight: 700; margin: 0; }
+#cantoneseView .dlist li a { display: flex; flex-direction: column; padding: .7rem .9rem; margin: .4rem 0; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; text-decoration: none; color: var(--ink); }
+#cantoneseView .dlist li a small { color: var(--muted); }
+#cantoneseView .dlist .dunit { margin: 1.2rem 0 .2rem; font-weight: 700; color: var(--red); font-size: .92rem; }
+#cantoneseView .modes { display: flex; gap: .3rem; background: var(--line); padding: 4px; border-radius: 999px; margin: .6rem 0 1rem; }
+#cantoneseView .mode { flex: 1; border: 0; background: none; border-radius: 999px; padding: .5rem; cursor: pointer; font-weight: 600; color: var(--muted); min-height: 42px; }
+#cantoneseView .mode[aria-selected="true"] { background: var(--paper); color: var(--red-ink); box-shadow: var(--shadow); }
+#cantoneseView .dstage .btn { margin-bottom: .6rem; }
+#cantoneseView .shadow .face { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.2rem; }
+#cantoneseView .shadow .spk { display: inline-block; margin-bottom: .4rem; }
+#cantoneseView .player { min-height: 2rem; }
+#cantoneseView .player audio { width: 100%; }
+#cantoneseView .menu a { display: block; padding: .9rem 1rem; margin: .4rem 0; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; text-decoration: none; color: var(--ink); font-weight: 600; }
+#cantoneseView .simple { width: 100%; border-collapse: collapse; font-size: .92rem; background: var(--paper); }
+#cantoneseView .simple th,
+#cantoneseView .simple td { border-bottom: 1px solid var(--line); padding: .45rem .4rem; text-align: left; vertical-align: top; }
+#cantoneseView .settings { display: grid; grid-template-columns: minmax(8rem, auto) 1fr; gap: .7rem 1rem; align-items: center; }
+#cantoneseView .settings .inline { grid-column: 1 / -1; display: flex; align-items: center; gap: .4rem; }
+#cantoneseView .settings input[type="checkbox"] { min-height: auto; width: 20px; height: 20px; }
+@media (max-width: 420px) {
+#cantoneseView .statgrid { grid-template-columns: repeat(2, 1fr); }
+#cantoneseView .dline { grid-template-columns: 1fr auto; }
+#cantoneseView .dline .spk { grid-column: 1 / -1; justify-self: start; }
+#cantoneseView .settings { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+#cantoneseView * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
+#cantoneseView { font: 17px/1.6 var(--cjk); color: var(--ink); }
+#cantoneseView h1 { font-size: 1.6rem; line-height: 1.3; letter-spacing: 0; margin: .6em 0 .4em; }
+#cantoneseView h2 { font-size: 1.15rem; margin: 1.2em 0 .5em; }
+#cantoneseView h3 { font-size: 1.05rem; margin: 1em 0 .4em; }
+#cantoneseView p { margin: .5em 0; }
+#cantoneseView .ct-main { outline: none; }
+#cantoneseView .ct-tabs {
+  position: sticky; top: 0; z-index: 4; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+  padding: 4px; margin-bottom: .4rem; background: var(--paper); border: 1px solid var(--line); border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+#cantoneseView .ct-tabs a {
+  padding: .45rem 0; border-radius: 999px; text-align: center; text-decoration: none; color: var(--muted); font-weight: 700; font-size: .95rem;
+}
+#cantoneseView .ct-tabs a[aria-current] { background: var(--red); color: #fff; }

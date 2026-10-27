@@ -1,4 +1,6 @@
 .firecrawl/
+__pycache__/
+*.py[cod]
 *.log
 *.db
 *.db-wal

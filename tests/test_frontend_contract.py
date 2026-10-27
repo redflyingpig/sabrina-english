@@ -168,6 +168,45 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn("wordbook: getWordbook()", self.function_body("exportBackup"))
         self.assertIn("payload.wordbook", self.function_body("importBackup"))
 
+    def test_site_is_titled_go_sabrina_go(self):
+        self.assertIn("<title>Go Sabrina Go</title>", self.html)
+        self.assertIn("<h1>Go Sabrina Go</h1>", self.html)
+        self.assertNotIn("Sabrina English", self.html)
+
+    def test_cantonese_tab_is_wired_into_the_page(self):
+        self.assertIn('href="/assets/cantonese.css"', self.html)
+        self.assertIn('src="/assets/cantonese-core.js"', self.html)
+        self.assertIn('<script type="module" src="/assets/cantonese/app.js"></script>', self.html)
+        self.assertIn('href="#cantonese"', self.html)
+        self.assertEqual("cantonese", self.attributes_for_id("cantoneseView")["data-view"])
+        self.assertIn('view: "cantonese"', self.function_body("parseRoute"))
+        self.assertIn("SabrinaCantoneseApp?.render()", self.function_body("renderRoute"))
+        self.assertIn("SabrinaCantoneseApp?.reset()", self.function_body("refreshWordbookForSession"))
+
+    def test_cantonese_progress_is_part_of_profile_sync_and_backup(self):
+        self.assertIn("getCantonese()", self.function_body("getProfileState"))
+        self.assertIn("CANTONESE_KEY", self.function_body("applyProfileState"))
+        self.assertIn("SabrinaCantonese.merge(cloudState.cantonese, localState.cantonese)", self.function_body("mergeProfileStates"))
+        self.assertIn("CANTONESE_KEY", self.function_body("hasLocalProfileData"))
+        self.assertIn('CANTONESE_KEY = profileStorageKey("cantonese")', self.function_body("setActiveProfile"))
+        self.assertIn("cantonese: getCantonese()", self.function_body("exportBackup"))
+        self.assertIn("payload.cantonese", self.function_body("importBackup"))
+        self.assertIn("changed: scheduleProfileSync", self.html)
+
+    def test_cantonese_course_needs_a_session(self):
+        data = (INDEX.parent / "assets" / "cantonese" / "data.js").read_text(encoding="utf-8")
+        self.assertIn('apiRequest("/api/cantonese/course")', data)
+        self.assertNotIn("course.json", data)
+
+    def test_cantonese_styles_are_scoped(self):
+        css = (INDEX.parent / "assets" / "cantonese.css").read_text(encoding="utf-8")
+        css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        css = re.sub(r"@keyframes[^{]+\{(?:[^{}]*\{[^}]*\})*[^}]*\}", "", css)
+        css = re.sub(r"@media[^{]+\{", "", css)
+        for selector_list in re.findall(r"(?:^|\})\s*([^{}]+)\{", css):
+            for selector in selector_list.split(","):
+                self.assertTrue(selector.strip().startswith("#cantoneseView"), selector.strip())
+
     def test_wordbook_content_needs_a_session(self):
         self.assertIn("Authorization: `Bearer ${sessionToken}`", self.html)
         self.assertNotIn("/wordbook/pages/", self.html.replace("/api/wordbook/pages/", ""))

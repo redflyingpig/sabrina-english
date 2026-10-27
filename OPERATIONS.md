@@ -13,6 +13,16 @@ python3 -m unittest discover -v
 
 服务启动时从 `content/manifest.json` 建立公开文件白名单；新增或替换内容后必须重启服务。浏览器会校验每个分片的 SHA-256，校验失败时保留本机学习记录并显示重试入口。
 
+## 廣東話课程内容
+
+廣東話分页的程序在 `assets/cantonese/`（进 git）；课程内容取自 ERB 教材，有版权，不进 git，只放在数据目录：
+
+```sh
+install -m 600 course.json "$HOME/Library/Application Support/SabrinaEnglish/cantonese/course.json"
+```
+
+`course.json` 由 MacBook 上的 `~/projects/sabrina-cantonese` 运行 `python3 build/build.py` 生成。它只经 `/api/cantonese/course` 提供给已登录档案，替换后不必重启服务。学习进度存在档案的 `cantonese` 字段，随档案同步和备份。
+
 ## 初始化三个档案
 
 ```sh

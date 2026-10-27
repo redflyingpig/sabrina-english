@@ -226,11 +226,72 @@
     return Number.isFinite(value) ? value : 0;
   }
 
-  function selectBatch({ items, history = [], batchSize, seed, cursor = 0 }) {
+  // Expressions and sentence patterns are generated from a few dozen templates ("Could you check…",
+  // "I need to + verb …"), and the catalogs list each template's variants back to back. Serving that
+  // order as-is makes consecutive lessons feel identical, so the ordering is re-interleaved by
+  // template family: a variant is never followed by another variant of the same family while a
+  // different family still has unserved items.
+  function diversifyOrder(list, keyOf, seed) {
+    const groups = new Map();
+    for (const entry of list) {
+      const key = keyOf(entry);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(entry);
+    }
+    if (groups.size < 2) return list;
+    // Shuffle inside each family first so a family that owns a large share of the catalog is spread
+    // across the whole rotation instead of landing several variants in the same batch.
+    const random = randomGenerator(`${seed || "diversify"}|family`);
+    const queues = Array.from(groups.values());
+    for (const queue of queues) {
+      for (let index = queue.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(random() * (index + 1));
+        [queue[index], queue[swapIndex]] = [queue[swapIndex], queue[index]];
+      }
+    }
+    // Cyclic rotation: one variant per family in turn, so a family is not revisited until every other
+    // family has been served once. A greedy "differs from the previous one" pick would bounce between
+    // just two families instead of spreading across all of them.
+    const result = [];
+    let index = 0;
+    while (result.length < list.length) {
+      let served = 0;
+      for (let step = 0; step < queues.length && result.length < list.length; step += 1) {
+        const queue = queues[(index + step) % queues.length];
+        if (!queue.length) continue;
+        result.push(queue.shift());
+        served += 1;
+        index = (index + step + 1) % queues.length;
+        break;
+      }
+      if (!served) break;
+    }
+    return result;
+  }
+
+  // Best-effort template family for the catalogs: the leading clause shared by all variants. Template
+  // markers ("+ verb", "/", en dash) are cut first, then the leading words up to the first preposition
+  // or "to", so "I need to + verb at home" and "I need to + verb at work" share one family.
+  function defaultTemplateFamily(entry) {
+    let title = String(itemTitle(entry) || "").toLowerCase();
+    title = title.split(/\s+\+\s+|\s*\/\s*|\s+—\s+/)[0];
+    const cut = title.search(/\b(?:at|in|on|during|before|after|for|with|near|from|about|to|when|while|where|why|how easy|how long)\b/);
+    if (cut > 0) title = title.slice(0, cut);
+    return title.trim().replace(/[^a-z0-9' ]+/g, "");
+  }
+
+  function selectBatch({
+    items,
+    history = [],
+    batchSize,
+    seed,
+    cursor = 0,
+    templateFamilyOf = defaultTemplateFamily,
+  }) {
     // Two segments: wordbook lessons keep the book's teaching order and are served straight through;
     // the ECDICT backfill keeps the frequency-priority window with nearby-word mixing. Review
     // rotation keeps the seeded shuffle to spread revisited items.
-    const ordered = priorityOrder(items);
+    const ordered = diversifyOrder(priorityOrder(items), templateFamilyOf, seed);
     const shuffled = stableOrder(items, seed);
     const learnedIds = new Set(history.map((entry) => entry && entry.contentId).filter(Boolean));
     const learnedLegacy = new Set(history.map(legacyIdentity).filter(Boolean));
@@ -375,6 +436,8 @@
     normalize,
     wordbookLessonItems,
     wordbookKnownKeys,
+    diversifyOrder,
+    defaultTemplateFamily,
     buildLessonPool,
   };
 });

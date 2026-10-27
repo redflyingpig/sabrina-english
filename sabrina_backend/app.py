@@ -25,6 +25,7 @@ CONTENT_SECURITY_POLICY = (
     "script-src 'self' 'unsafe-inline'; "
     "style-src 'self' 'unsafe-inline'; "
     "img-src 'self' data: blob:; "
+    "media-src 'self' blob:; "
     "connect-src 'self'; "
     "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 )
@@ -33,14 +34,28 @@ CONTENT_SECURITY_POLICY = (
 WORDBOOK_PAGE_PATTERN = re.compile(r"^p\d{3}\.jpg$")
 WORDBOOK_MAX_ENTRIES = 10000
 WORDBOOK_KEY_MAX_LENGTH = 120
+# The 廣東話 course (ERB workbook) is also copyrighted: course.json lives in the
+# data directory and is served only to signed-in profiles. The app code is public.
+CANTONESE_MODULES = (
+    "app", "core", "data", "exercises", "host", "render", "speech", "store", "ui",
+    "views/course", "views/dialogues", "views/home", "views/lesson", "views/more",
+    "views/quiz", "views/review",
+)
+CANTONESE_SECTIONS = ("lessons", "cards", "days", "dialogues", "answers", "settings")
+CANTONESE_MAX_KEYS = 5000
+CANTONESE_KEY_MAX_LENGTH = 120
+CANTONESE_MAX_BYTES = 1024 * 1024
 STATIC_FILES = frozenset(
     {
         "index.html",
         "assets/content-library.js",
         "assets/wordbook.js",
         "assets/wordbook.css",
+        "assets/cantonese-core.js",
+        "assets/cantonese.css",
         "content/manifest.json",
     }
+    | {f"assets/cantonese/{name}.js" for name in CANTONESE_MODULES}
 )
 
 
@@ -63,6 +78,7 @@ class SabrinaHTTPServer(ThreadingHTTPServer):
         except OSError:
             pass
         self.wordbook_dir = self.data_dir / "wordbook"
+        self.cantonese_dir = self.data_dir / "cantonese"
         self.store = Store(self.data_dir / "sabrina.db")
         self.store.initialize()
         self.public_origin = os.environ.get(
@@ -231,6 +247,8 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             self._wordbook_data()
         elif path.startswith("/api/wordbook/pages/"):
             self._wordbook_page(path[len("/api/wordbook/pages/") :])
+        elif path == "/api/cantonese/course":
+            self._cantonese_course()
         elif path.startswith("/api/"):
             self._error(404, "not_found", "API endpoint not found")
         else:
@@ -360,11 +378,26 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             return
         self._send_wordbook_file(self.server.wordbook_dir / "pages" / name, "image/jpeg")
 
-    def _send_wordbook_file(self, path: Path, content_type: str) -> None:
+    def _cantonese_course(self) -> None:
+        _, profile = self._authenticated()
+        if profile is None:
+            return
+        self._send_wordbook_file(
+            self.server.cantonese_dir / "course.json",
+            "application/json; charset=utf-8",
+            missing=("cantonese_unavailable", "Cantonese course is not installed"),
+        )
+
+    def _send_wordbook_file(
+        self,
+        path: Path,
+        content_type: str,
+        missing: Tuple[str, str] = ("wordbook_unavailable", "Wordbook content is not installed"),
+    ) -> None:
         try:
             body = path.read_bytes()
         except OSError:
-            self._error(404, "wordbook_unavailable", "Wordbook content is not installed")
+            self._error(404, *missing)
             return
         # Signed-in content: shared caches must not keep it, and the browser must
         # revalidate every time so a signed-out tab cannot read it from cache.
@@ -415,6 +448,8 @@ class SabrinaHandler(BaseHTTPRequestHandler):
                 return False
         if "wordbook" in state and not SabrinaHandler._valid_wordbook(state["wordbook"]):
             return False
+        if "cantonese" in state and not SabrinaHandler._valid_cantonese(state["cantonese"]):
+            return False
         if "version" in state and (not isinstance(state["version"], int) or isinstance(state["version"], bool)):
             return False
         if "updatedAt" in state and not isinstance(state["updatedAt"], str):
@@ -440,6 +475,36 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             if not isinstance(entry.get("at", ""), str):
                 return False
         return True
+
+    @staticmethod
+    def _valid_cantonese(cantonese: Any) -> bool:
+        # {"lessons": {id: day}, "cards": {id: {due, ivl, ease, reps, lapses, at}},
+        #  "days": {"YYYY-MM-DD": {...}}, "dialogues": {id: n}, "answers": {key: text},
+        #  "settings": {...}}; shape is owned by assets/cantonese-core.js.
+        if not isinstance(cantonese, dict):
+            return False
+        if any(key not in CANTONESE_SECTIONS for key in cantonese):
+            return False
+        for section in CANTONESE_SECTIONS:
+            values = cantonese.get(section, {})
+            if not isinstance(values, dict) or len(values) > CANTONESE_MAX_KEYS:
+                return False
+            if any(not key or len(key) > CANTONESE_KEY_MAX_LENGTH for key in values):
+                return False
+        for card in cantonese.get("cards", {}).values():
+            if not isinstance(card, dict):
+                return False
+            for field in ("due", "ivl", "ease", "reps", "lapses"):
+                value = card.get(field, 0)
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    return False
+        for count in cantonese.get("dialogues", {}).values():
+            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                return False
+        if any(not isinstance(text, str) for text in cantonese.get("answers", {}).values()):
+            return False
+        encoded = json.dumps(cantonese, separators=(",", ":"), ensure_ascii=False)
+        return len(encoded.encode("utf-8")) <= CANTONESE_MAX_BYTES
 
     @staticmethod
     def _valid_entry(item: Any, identity_key: str) -> bool:

@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sabrina English Daily Lesson</title>
+  <title>Go Sabrina Go</title>
+  <link rel="stylesheet" href="/assets/cantonese.css">
   <style>
     :root {
       color-scheme: light;
@@ -854,12 +855,13 @@
       <nav class="app-switch" aria-label="学习模块">
         <a href="#today" data-switch="today">今日一课</a>
         <a href="#wordbook" data-switch="wordbook">10天单词书</a>
+        <a href="#cantonese" data-switch="cantonese" lang="zh-HK">廣東話</a>
       </nav>
 
       <header class="hero" data-view="today">
         <div>
           <p class="eyebrow">Today’s English</p>
-          <h1>Sabrina English</h1>
+          <h1>Go Sabrina Go</h1>
           <p class="subtitle" id="lessonSubtitle"></p>
         </div>
         <div class="date-card" aria-label="Current lesson date">
@@ -962,6 +964,7 @@
       </section>
 
       <div class="wb-view" id="wordbookView" data-view="wordbook" hidden></div>
+      <div id="cantoneseView" data-view="cantonese" lang="zh-HK" hidden></div>
     </div>
   </main>
 
@@ -989,6 +992,8 @@
 
   <script src="/assets/content-library.js"></script>
   <script src="/assets/wordbook.js"></script>
+  <script src="/assets/cantonese-core.js"></script>
+  <script type="module" src="/assets/cantonese/app.js"></script>
   <script>
     const LEGACY_STORAGE_KEY = "sabrinaEnglishLearnedHistory";
     const LEGACY_FAVORITES_KEY = "sabrinaEnglishFavorites";
@@ -1004,6 +1009,7 @@
     let STREAK_KEY = profileStorageKey("streak");
     let PROFILE_UPDATED_KEY = profileStorageKey("updatedAt");
     let WORDBOOK_KEY = profileStorageKey("wordbook");
+    let CANTONESE_KEY = profileStorageKey("cantonese");
     let syncTimer = null;
     let syncInFlight = false;
     let syncPending = false;
@@ -1520,6 +1526,21 @@
       nextBatchWrap.hidden = !completed;
     }
 
+    // Expressions and patterns are generated from a few dozen templates, and both catalogs list each
+    // template's variants back to back. These keys group variants of one template so selectBatch can
+    // interleave families instead of serving 18 "Could you check …" variants in a row.
+    // Patterns are named "I need to + verb <tail>", so the head up to "to" is the template.
+    // Expressions repeat their opening three words ("Could you check …", "I need to …").
+    function templateFamilyKey(item) {
+      const title = String(item.pattern || item.expression || item.word || "").toLowerCase();
+      if (item.pattern || title.includes("+")) {
+        const head = title.split(/\s+\+\s+|\s*\/\s*|\s+—\s+/)[0];
+        return head.split(/\s+to\b/)[0].replace(/[^a-z0-9' ]+/g, "").trim();
+      }
+      const words = title.replace(/[^a-z0-9' ]+/g, " ").split(/\s+/).filter(Boolean);
+      return words.slice(0, 3).join(" ");
+    }
+
     function selectNextLessonSet(currentMode, currentIndex, history) {
       const seed = `${activeProfile?.name || "guest"}:${contentVersion}:${currentMode}`;
       return SabrinaContent.selectBatch({
@@ -1527,7 +1548,8 @@
         history,
         batchSize: batchSizes[currentMode],
         seed,
-        cursor: currentIndex
+        cursor: currentIndex,
+        templateFamilyOf: templateFamilyKey
       });
     }
 
@@ -1763,19 +1785,20 @@
 
     function exportBackup() {
       const payload = {
-        app: "Sabrina English",
+        app: "Go Sabrina Go",
         version: BACKUP_VERSION,
         exportedAt: new Date().toISOString(),
         history: getHistory(),
         favorites: getFavorites(),
         streak: getStreak(),
-        wordbook: getWordbook()
+        wordbook: getWordbook(),
+        cantonese: getCantonese()
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `sabrina-english-backup-${todayKey}.json`;
+      link.download = `go-sabrina-go-backup-${todayKey}.json`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -1801,6 +1824,9 @@
         }
         if (payload.wordbook && typeof payload.wordbook === "object") {
           localStorage.setItem(WORDBOOK_KEY, JSON.stringify(SabrinaWordbook.normalizeState(payload.wordbook)));
+        }
+        if (payload.cantonese && typeof payload.cantonese === "object") {
+          localStorage.setItem(CANTONESE_KEY, JSON.stringify(SabrinaCantonese.normalizeState(payload.cantonese)));
         }
         renderLesson();
         renderHistory();
@@ -1843,6 +1869,7 @@
       STREAK_KEY = profileStorageKey("streak");
       PROFILE_UPDATED_KEY = profileStorageKey("updatedAt");
       WORDBOOK_KEY = profileStorageKey("wordbook");
+      CANTONESE_KEY = profileStorageKey("cantonese");
     }
 
     function showLoginDialog() {
@@ -1940,8 +1967,17 @@
         history: getHistory(),
         favorites: getFavorites(),
         streak: getStreak(),
-        ...withWordbook(getWordbook())
+        ...withWordbook(getWordbook()),
+        ...withCantonese(getCantonese())
       };
+    }
+
+    function getCantonese() {
+      try {
+        return SabrinaCantonese.normalizeState(JSON.parse(localStorage.getItem(CANTONESE_KEY) || "null"));
+      } catch {
+        return SabrinaCantonese.emptyState();
+      }
     }
 
     function getWordbook() {
@@ -1967,6 +2003,9 @@
       }
       if (state.wordbook && typeof state.wordbook === "object") {
         localStorage.setItem(WORDBOOK_KEY, JSON.stringify(SabrinaWordbook.normalizeState(state.wordbook)));
+      }
+      if (state.cantonese && typeof state.cantonese === "object") {
+        localStorage.setItem(CANTONESE_KEY, JSON.stringify(SabrinaCantonese.normalizeState(state.cantonese)));
       }
     }
 
@@ -2039,7 +2078,8 @@
       return localStorage.getItem(STORAGE_KEY) !== null ||
         localStorage.getItem(FAVORITES_KEY) !== null ||
         localStorage.getItem(STREAK_KEY) !== null ||
-        localStorage.getItem(WORDBOOK_KEY) !== null;
+        localStorage.getItem(WORDBOOK_KEY) !== null ||
+        localStorage.getItem(CANTONESE_KEY) !== null;
     }
 
     function mergeProfileStates(cloudState, localState) {
@@ -2068,8 +2108,14 @@
         history: [...historyByKey.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
         favorites: [...favoritesByKey.values()],
         streak,
-        ...withWordbook(SabrinaWordbook.merge(cloudState.wordbook, localState.wordbook))
+        ...withWordbook(SabrinaWordbook.merge(cloudState.wordbook, localState.wordbook)),
+        ...withCantonese(SabrinaCantonese.merge(cloudState.cantonese, localState.cantonese))
       };
+    }
+
+    // Same idea as withWordbook: profiles that never opened 廣東話 keep their old shape.
+    function withCantonese(cantonese) {
+      return SabrinaCantonese.isEmpty(cantonese) ? {} : { cantonese };
     }
 
     // Profiles that never opened the wordbook keep their old state shape, so an
@@ -2259,8 +2305,24 @@
       requestLogin: showLoginDialog
     });
 
+    // 廣東話 tab (assets/cantonese/app.js, an ES module that loads after this script)
+    // reaches the page only through this bridge.
+    window.SabrinaHost = {
+      storageKey: () => CANTONESE_KEY,
+      changed: scheduleProfileSync,
+      studied() {
+        updateStreak(todayKey);
+        renderStreak();
+      },
+      apiRequest,
+      toast: showToast,
+      isSignedIn: () => Boolean(sessionToken && activeProfile),
+      requestLogin: showLoginDialog
+    };
+
     function parseRoute() {
       const parts = window.location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+      if (parts[0] === "cantonese") return { view: "cantonese" };
       if (parts[0] !== "wordbook") return { view: "today" };
       return parts[1] === "day"
         ? { view: "wordbook", day: Number(parts[2]), tab: parts[3] }
@@ -2276,14 +2338,20 @@
         if (link.dataset.switch === route.view) link.setAttribute("aria-current", "page");
         else link.removeAttribute("aria-current");
       });
-      document.title = route.view === "wordbook" ? "10天单词书 · Sabrina English" : "Sabrina English Daily Lesson";
+      document.title = {
+        wordbook: "10天单词书 · Go Sabrina Go",
+        cantonese: "廣東話 · Go Sabrina Go"
+      }[route.view] || "Go Sabrina Go";
       if (route.view === "wordbook") wordbook.render(route);
+      if (route.view === "cantonese") window.SabrinaCantoneseApp?.render();
+      else window.SabrinaCantoneseApp?.hide();
     }
 
-    // Only session changes rebuild the wordbook; background syncs must not
-    // interrupt a flashcard or quiz that is in progress.
+    // Only session changes rebuild the wordbook and 廣東話 tab; background syncs
+    // must not interrupt a flashcard or quiz that is in progress.
     function refreshWordbookForSession() {
       wordbook.reset();
+      window.SabrinaCantoneseApp?.reset();
       renderRoute();
     }
 

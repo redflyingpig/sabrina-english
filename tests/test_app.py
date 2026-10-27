@@ -225,6 +225,105 @@ class AppTest(unittest.TestCase):
             self.assertEqual(400, status, wordbook)
             self.assertEqual("invalid_profile_state", body["error"])
 
+    def install_cantonese(self):
+        course = self.data_dir / "cantonese"
+        course.mkdir(parents=True)
+        (course / "course.json").write_text('{"units":[],"lessons":[],"cards":[]}', encoding="utf-8")
+
+    def test_cantonese_course_requires_login(self):
+        self.install_cantonese()
+        status, _, body = self.request("GET", "/api/cantonese/course")
+        self.assertEqual(401, status)
+        self.assertEqual("unauthorized", body["error"])
+        status, _, _ = self.request("GET", "/api/cantonese/course", token="not-a-session")
+        self.assertEqual(401, status)
+
+    def test_cantonese_course_served_privately_to_signed_in_profile(self):
+        self.install_cantonese()
+        token = self.login("Sabrina")
+        status, headers, body = self.request("GET", "/api/cantonese/course", token=token)
+        self.assertEqual(200, status)
+        self.assertEqual([], body["units"])
+        self.assertEqual("private, no-cache", headers["Cache-Control"])
+        status, _, _ = self.request(
+            "GET", "/api/cantonese/course", token=token, headers={"If-None-Match": headers["ETag"]}
+        )
+        self.assertEqual(304, status)
+
+    def test_cantonese_course_is_never_a_static_file(self):
+        self.install_cantonese()
+        (self.root_dir / "cantonese").mkdir()
+        (self.root_dir / "cantonese" / "course.json").write_text("{}", encoding="utf-8")
+        for path in ("/cantonese/course.json", "/data/cantonese/course.json", "/assets/cantonese/course.json"):
+            status, _, _ = self.request("GET", path)
+            self.assertEqual(404, status, path)
+
+    def test_cantonese_missing_content_reports_unavailable(self):
+        token = self.login()
+        status, _, body = self.request("GET", "/api/cantonese/course", token=token)
+        self.assertEqual(404, status)
+        self.assertEqual("cantonese_unavailable", body["error"])
+
+    def test_cantonese_app_code_is_served_but_unlisted_files_are_not(self):
+        (self.root_dir / "assets" / "cantonese" / "views").mkdir(parents=True)
+        (self.root_dir / "assets" / "cantonese" / "app.js").write_text("export {};", encoding="utf-8")
+        (self.root_dir / "assets" / "cantonese" / "secret.js").write_text("x", encoding="utf-8")
+        status, headers, _ = self.request("GET", "/assets/cantonese/app.js")
+        self.assertEqual(200, status)
+        self.assertIn("javascript", headers["Content-Type"])
+        status, _, _ = self.request("GET", "/assets/cantonese/secret.js")
+        self.assertEqual(404, status)
+
+    def test_profile_state_round_trips_cantonese_progress(self):
+        token = self.login("Sabrina")
+        cantonese = {
+            "lessons": {"u1s1-l1": 20752},
+            "cards": {"u1s1-c1": {"due": 20753, "ivl": 1, "ease": 2.5, "reps": 1, "lapses": 0, "at": 1}},
+            "days": {"2026-10-26": {"sec": 600, "reviews": 3, "newLessons": 1, "quiz": [8, 10], "dialogues": []}},
+            "dialogues": {"u4s4-d1": 2},
+            "answers": {"u3s3:7:1": "你得閒就嚟"},
+            "settings": {"rate": 0.9},
+        }
+        state = {"history": [], "favorites": [], "cantonese": cantonese}
+        status, _, _ = self.request("PUT", "/api/profile", {"state_version": 0, "state": state}, token=token)
+        self.assertEqual(200, status)
+        _, _, loaded = self.request("GET", "/api/profile", token=token)
+        self.assertEqual(cantonese, loaded["state"]["cantonese"])
+
+        other = self.login("Max")
+        _, _, theirs = self.request("GET", "/api/profile", token=other)
+        self.assertNotIn("cantonese", theirs["state"])
+
+    def test_rejects_invalid_cantonese_state(self):
+        token = self.login()
+        too_many = {f"c{i}": {"due": 1} for i in range(5001)}
+        for cantonese in (
+            [],
+            {"cards": []},
+            {"unknown": {}},
+            {"cards": {"c1": "known"}},
+            {"cards": {"c1": {"due": "today"}}},
+            {"cards": {"c1": {"reps": True}}},
+            {"cards": too_many},
+            {"lessons": {"": 1}},
+            {"lessons": {"x" * 121: 1}},
+            {"dialogues": {"d1": -1}},
+            {"answers": {"a": 5}},
+            {"answers": {f"a{i}": "字" * 300 for i in range(1300)}},
+        ):
+            status, _, body = self.request(
+                "PUT",
+                "/api/profile",
+                {"state_version": 0, "state": {"history": [], "favorites": [], "cantonese": cantonese}},
+                token=token,
+            )
+            self.assertEqual(400, status, str(cantonese)[:80])
+            self.assertEqual("invalid_profile_state", body["error"])
+
+    def test_csp_allows_recording_playback(self):
+        _, headers, _ = self.request("GET", "/")
+        self.assertIn("media-src 'self' blob:", headers["Content-Security-Policy"])
+
     def test_health_reports_database_error(self):
         self.server.store.db_path.unlink()
         self.server.store.db_path.mkdir()

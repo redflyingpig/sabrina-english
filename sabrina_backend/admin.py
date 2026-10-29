@@ -66,9 +66,21 @@ def list_profiles(data_dir: Path, output: TextIO = sys.stdout) -> None:
     store = _store(data_dir)
     for profile in store.list_profiles():
         output.write(
-            f"{profile['display_name']}\tcreated={profile['created_at']}"
-            f"\tupdated={profile['updated_at']}\n"
+            f"{profile['display_name']}\temail={profile.get('email') or '-'}"
+            f"\tcreated={profile['created_at']}\tupdated={profile['updated_at']}\n"
         )
+
+
+def bind_email(data_dir: Path, username: str, email: str, output: TextIO = sys.stdout) -> None:
+    store = _store(data_dir)
+    store.bind_profile_email(username, email)
+    output.write(f"已把 {username} 绑定到 {store.normalize_email(email)}\n")
+
+
+def rename_profile(data_dir: Path, username: str, new_name: str, output: TextIO = sys.stdout) -> None:
+    store = _store(data_dir)
+    renamed = store.rename_profile(username, new_name)
+    output.write(f"已改名：{username} → {renamed['display_name']}\n")
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -80,6 +92,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     reset_parser.add_argument("username")
     reset_parser.add_argument("--generate", action="store_true")
     subparsers.add_parser("list-profiles")
+    bind_parser = subparsers.add_parser("bind-email")
+    bind_parser.add_argument("username")
+    bind_parser.add_argument("email")
+    rename_parser = subparsers.add_parser("rename")
+    rename_parser.add_argument("username")
+    rename_parser.add_argument("new_name")
     args = parser.parse_args(argv)
 
     if args.command == "init-profiles":
@@ -87,6 +105,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
     if args.command == "list-profiles":
         list_profiles(args.data_dir)
+        return 0
+    if args.command == "bind-email":
+        bind_email(args.data_dir, args.username, args.email)
+        return 0
+    if args.command == "rename":
+        rename_profile(args.data_dir, args.username, args.new_name)
         return 0
     if args.command == "reset-pin":
         pin = _random_pin() if args.generate else getpass.getpass("New PIN (6-64 chars): ")

@@ -10,7 +10,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from sabrina_backend.admin import init_profiles, list_profiles, reset_pin
+from sabrina_backend.admin import bind_email, init_profiles, list_profiles, rename_profile, reset_pin
 from sabrina_backend.backup import backup_database
 from sabrina_backend.store import Store
 
@@ -272,6 +272,29 @@ class AdminBackupTest(unittest.TestCase):
             )
         self.assertEqual("live-after-backup", safety_state["history"][0]["title"])
 
+
+    def test_bind_email_and_rename_are_reusable_operations(self):
+        store = self.store()
+        store.create_profile("Owner", "123456")
+        store.create_profile("Sabrina", "234567")
+
+        output = io.StringIO()
+        bind_email(self.data_dir, "Owner", "Alex.Yacao.Wang@Gmail.com", output)
+        rename_profile(self.data_dir, "Owner", "Alex", output)
+
+        profiles = self.store().list_profiles()
+        self.assertEqual(
+            [("Alex", "alex.yacao.wang@gmail.com"), ("Sabrina", None)],
+            [(p["display_name"], p["email"]) for p in profiles],
+        )
+        self.assertIn("Alex", output.getvalue())
+
+    def test_rename_rejects_a_taken_name(self):
+        store = self.store()
+        store.create_profile("Owner", "123456")
+        store.create_profile("Sabrina", "234567")
+        with self.assertRaises(ValueError):
+            store.rename_profile("Owner", "sabrina")
 
 if __name__ == "__main__":
     unittest.main()

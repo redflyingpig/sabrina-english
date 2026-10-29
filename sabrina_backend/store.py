@@ -264,6 +264,28 @@ class Store:
                 "update profiles set email = ? where id = ?", (normalized_email, row["id"])
             )
 
+    def rename_profile(self, display_name: str, new_display_name: str) -> Dict[str, Any]:
+        """Rename a profile (display name and its unique normalized key)."""
+        normalized = self.normalize_username(self.normalize_display_name(display_name))
+        new_name = self.normalize_display_name(new_display_name)
+        new_username = self.normalize_username(new_name)
+        now = self._utc_now().isoformat()
+        with self._connect() as connection:
+            row = connection.execute(
+                "select id from profiles where username_normalized = ?", (normalized,)
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"No profile named {display_name}")
+            try:
+                connection.execute(
+                    "update profiles set username_normalized = ?, display_name = ?, updated_at = ?"
+                    " where id = ?",
+                    (new_username, new_name, now, row["id"]),
+                )
+            except sqlite3.IntegrityError as error:
+                raise ValueError("Profile already exists") from error
+        return {"id": row["id"], "display_name": new_name}
+
     def authenticate(self, username: str, pin: str) -> Optional[Dict[str, Any]]:
         try:
             normalized = self.normalize_username(username)
@@ -321,11 +343,12 @@ class Store:
     def list_profiles(self):
         with self._connect() as connection:
             rows = connection.execute(
-                "select display_name, created_at, updated_at from profiles order by id"
+                "select display_name, email, created_at, updated_at from profiles order by id"
             ).fetchall()
         return [
             {
                 "display_name": row["display_name"],
+                "email": row["email"],
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
             }

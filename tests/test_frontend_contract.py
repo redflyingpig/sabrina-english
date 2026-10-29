@@ -57,12 +57,26 @@ class FrontendContractTest(unittest.TestCase):
         self.assertNotIn("profilePinInput", self.html)
         self.assertNotIn("profilePinInput", self.function_body("loginProfile"))
         self.assertIn("body: { username }", self.function_body("loginProfile"))
-        self.assertIn('error.payload?.error === "invalid_username"', self.function_body("loginProfile"))
-        self.assertIn("连接失败，请稍后再试。", self.function_body("loginProfile"))
+        body = self.function_body("loginProfile")
+        self.assertIn('const code = error.payload?.error;', body)
+        self.assertIn('code === "invalid_username"', body)
+        self.assertIn("连接失败，请稍后再试。", body)
         # The name is a study-profile id, not a fixed roster: no hard-coded options remain.
         self.assertNotIn("<select id=\"profileNameInput\"", self.html)
         for name in ("Owner", "Sabrina", "Max"):
             self.assertNotIn(f'<option value="{name}"', self.html)
+
+    def test_verified_email_identity_selects_a_profile_without_retyping(self):
+        # Cloudflare Access verifies the mailbox; the page then offers the profiles of that account.
+        self.assertIn('fetch("/api/whoami"', self.html)
+        self.assertIn('apiRequest("/api/profiles"', self.html)
+        self.assertIn("body: { profile_id: Number(profileId) }", self.function_body("signInWithProfile"))
+        self.assertIn("identityProfiles", self.function_body("renderProfileDialog"))
+        self.assertIn("/cdn-cgi/access/logout", self.html)
+        # A remembered profile is only reused when it belongs to the current account.
+        init = self.function_body("initializeApp")
+        self.assertIn("await refreshIdentity()", init)
+        self.assertIn("identityProfiles.some", init)
 
     def test_login_dialog_is_viewport_bounded(self):
         dialog_rule = re.search(r"\.profile-dialog\s*\{(.*?)\}", self.html, re.DOTALL)

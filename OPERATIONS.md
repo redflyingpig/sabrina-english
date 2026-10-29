@@ -23,29 +23,37 @@ install -m 600 course.json "$HOME/Library/Application Support/SabrinaEnglish/can
 
 `course.json` 由 MacBook 上的 `~/projects/sabrina-cantonese` 运行 `python3 build/build.py` 生成。它只经 `/api/cantonese/course` 提供给已登录档案，替换后不必重启服务。学习进度存在档案的 `cantonese` 字段，随档案同步和备份。
 
-## 档案由用户自己建立
+## 账号与档案（Cloudflare Access + 邮箱验证码）
 
-网站不限制档案数量，也没有预置用户名单。打开网站后在「学习用户名」里输入任意名字即可进入：
+登录不再由网站自己做，而是交给 Cloudflare Access：打开 https://sabrina.redflyingpig.com/ → 输入邮箱 → 收取一次性验证码 → 进入。**没有白名单**，任何有效邮箱都能验证；会话 30 天，同一浏览器一个月内不需要重复验证。
 
-- 名字**第一次出现时自动建档**，返回 `created: true`；
-- 之后输入**同一个名字**继续使用该档案，返回 `created: false`；
-- 名字就是档案 ID，不是登录凭据：没有 PIN，也没有密码。
+- Access 应用名 `sabrina-english`，One-time PIN IdP，策略 `allow` + `include: everyone`，`session_duration=720h`，`auto_redirect_to_identity=true`。
+- 隧道配置不需要改：`sabrina.redflyingpig.com -> http://127.0.0.1:18880` 已存在；Access 在边缘拦截，origin 仍然只听 `127.0.0.1`。
+- 边缘验证通过后会把邮箱放在 `Cf-Access-Authenticated-User-Email` 头里透传给 origin。origin 只监听本机，所以伪造该头只能来自本机进程。
 
-**重名规则**：`profiles.username_normalized` 上有唯一约束，比较前会去掉首尾空白、合并连续空格并转小写。因此 `Sabrina`、`sabrina`、`  SABRINA  ` 指向同一个档案，不会建出两个。名称长度限制 1–32 个字符，越界请求返回 `400 invalid_username`。
+**身份模型**：邮箱 = 账号；一个账号可以拥有多个学习档案（共用 iPad 时在一个浏览器里选 Sabrina / Max / Alex，不需要重新收验证码）。用户名只是显示名，**只在首次建立档案时输入一次**，之后靠邮箱自动识别——因此不会再出现「打错名字就多出一个空档案」的问题。显示名仍然全局唯一，重名返回 `409 name_taken`。
 
-`init-profiles` 仍然可用，但只用于给 `Owner`、`Sabrina`、`Max` 预建档案，不再是进入网站的前提：
+**当前绑定**：
+
+| 档案 | 邮箱 |
+| --- | --- |
+| Alex | `alex.yacao.wang@gmail.com` |
+| Sabrina | `liangmanyi33@gmail.com` |
+| Max | `alex.yacao.wang@gmail.com`（暂挂在 Alex 账号下共用设备；拿到 Max 自己的邮箱后可改绑） |
+
+**运维命令**：
 
 ```sh
-SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin init-profiles
+export SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish"
+python3 -m sabrina_backend.admin list-profiles
+python3 -m sabrina_backend.admin bind-email <档案名> <邮箱>     # 把已有档案绑定到已验证邮箱
+python3 -m sabrina_backend.admin rename <旧名> <新名>            # 改名（同时改唯一键）
+python3 -m sabrina_backend.admin init-profiles
 ```
 
-数据库里的 `pin_salt` / `pin_hash` 列是历史遗留的 not null 字段；自动建档时写入一个随机、不对外透露的值，不参与任何认证流程。查看现有档案：
+**本地开发**：设置 `SABRINA_DEV_EMAIL=you@example.com` 可模拟已验证身份（`GET /api/whoami` 会返回该邮箱名下的档案）。⚠️ **不要在生产 LaunchAgent 里设置这个变量**，否则所有请求都会被当成同一个邮箱。
 
-```sh
-SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin list-profiles
-```
-
-**安全边界（已知取舍）**：既然名字只是 ID，任何知道某个同学名字的人都能进入该档案，看到并修改其学习记录。目前档案里只有学习进度，没有隐私内容；如果以后要放个人资料，需要重新引入凭据。
+**回退**：删除 Cloudflare Access 应用即可恢复公开访问；此时网站会退回旧的「输入用户名」登录（`POST /api/auth/login {username}` 仍然保留）。
 
 ## 健康检查
 

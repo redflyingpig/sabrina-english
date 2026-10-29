@@ -264,6 +264,27 @@ class Store:
                 "update profiles set email = ? where id = ?", (normalized_email, row["id"])
             )
 
+    def delete_profile(self, display_name: str) -> Dict[str, Any]:
+        """Delete a profile and its sessions. Study data is not recoverable without a backup."""
+        normalized = self.normalize_username(self.normalize_display_name(display_name))
+        with self._connect() as connection:
+            row = connection.execute(
+                "select id, display_name, email from profiles where username_normalized = ?",
+                (normalized,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"No profile named {display_name}")
+            sessions = connection.execute(
+                "delete from sessions where profile_id = ?", (row["id"],)
+            ).rowcount
+            connection.execute("delete from profiles where id = ?", (row["id"],))
+        return {
+            "id": row["id"],
+            "display_name": row["display_name"],
+            "email": row["email"],
+            "sessions": sessions,
+        }
+
     def rename_profile(self, display_name: str, new_display_name: str) -> Dict[str, Any]:
         """Rename a profile (display name and its unique normalized key)."""
         normalized = self.normalize_username(self.normalize_display_name(display_name))

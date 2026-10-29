@@ -10,7 +10,14 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from sabrina_backend.admin import bind_email, init_profiles, list_profiles, rename_profile, reset_pin
+from sabrina_backend.admin import (
+    bind_email,
+    delete_profile,
+    init_profiles,
+    list_profiles,
+    rename_profile,
+    reset_pin,
+)
 from sabrina_backend.backup import backup_database
 from sabrina_backend.store import Store
 
@@ -295,6 +302,23 @@ class AdminBackupTest(unittest.TestCase):
         store.create_profile("Sabrina", "234567")
         with self.assertRaises(ValueError):
             store.rename_profile("Owner", "sabrina")
+
+    def test_delete_profile_removes_it_and_its_sessions(self):
+        store = self.store()
+        store.create_profile("Owner", "123456")
+        store.create_profile("Max", "234567")
+        token = store.create_session(2)
+        self.assertIsNotNone(store.resolve_session(token))
+
+        delete_profile(self.data_dir, "Max")
+
+        self.assertEqual(["Owner"], [p["display_name"] for p in self.store().list_profiles()])
+        self.assertIsNone(self.store().resolve_session(token))
+
+    def test_delete_profile_rejects_an_unknown_name(self):
+        self.store().create_profile("Owner", "123456")
+        with self.assertRaises(KeyError):
+            self.store().delete_profile("Nobody")
 
 if __name__ == "__main__":
     unittest.main()

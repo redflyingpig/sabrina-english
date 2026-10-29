@@ -39,7 +39,15 @@ install -m 600 course.json "$HOME/Library/Application Support/SabrinaEnglish/can
 | --- | --- |
 | Alex | `alex.yacao.wang@gmail.com` |
 | Sabrina | `liangmanyi33@gmail.com` |
-| Max | `alex.yacao.wang@gmail.com`（暂挂在 Alex 账号下共用设备；拿到 Max 自己的邮箱后可改绑） |
+
+Max 的档案已按需删除；需要时用对应邮箱完成验证，再在页面里新建同名档案即可（显示名 `Max` 现在是空闲的）。
+
+**删除与改绑**：`delete-profile` 会连同学会一起删掉，且不可恢复——执行前先跑一次备份：
+
+```sh
+SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.backup --keep 30
+SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin delete-profile Max
+```
 
 **运维命令**：
 
@@ -48,6 +56,7 @@ export SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish"
 python3 -m sabrina_backend.admin list-profiles
 python3 -m sabrina_backend.admin bind-email <档案名> <邮箱>     # 把已有档案绑定到已验证邮箱
 python3 -m sabrina_backend.admin rename <旧名> <新名>            # 改名（同时改唯一键）
+python3 -m sabrina_backend.admin delete-profile <档案名>         # 删除档案及其会话（先备份）
 python3 -m sabrina_backend.admin init-profiles
 ```
 

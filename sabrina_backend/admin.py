@@ -83,6 +83,15 @@ def rename_profile(data_dir: Path, username: str, new_name: str, output: TextIO 
     output.write(f"已改名：{username} → {renamed['display_name']}\n")
 
 
+def delete_profile(data_dir: Path, username: str, output: TextIO = sys.stdout) -> None:
+    store = _store(data_dir)
+    removed = store.delete_profile(username)
+    output.write(
+        f"已删除档案：{removed['display_name']}（id={removed['id']}, "
+        f"email={removed['email'] or '-'}, 清除会话 {removed['sessions']} 个）\n"
+    )
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Manage Sabrina English profiles")
     parser.add_argument("--data-dir", type=Path, default=default_data_dir())
@@ -95,6 +104,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     bind_parser = subparsers.add_parser("bind-email")
     bind_parser.add_argument("username")
     bind_parser.add_argument("email")
+    delete_parser = subparsers.add_parser("delete-profile")
+    delete_parser.add_argument("username")
     rename_parser = subparsers.add_parser("rename")
     rename_parser.add_argument("username")
     rename_parser.add_argument("new_name")
@@ -108,6 +119,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
     if args.command == "bind-email":
         bind_email(args.data_dir, args.username, args.email)
+        return 0
+    if args.command == "delete-profile":
+        delete_profile(args.data_dir, args.username)
         return 0
     if args.command == "rename":
         rename_profile(args.data_dir, args.username, args.new_name)

@@ -38,7 +38,7 @@ class StoreTest(unittest.TestCase):
         self.assertTrue({"profiles", "sessions", "schema_version"} <= tables)
         self.assertEqual("wal", journal_mode)
         self.assertTrue(session_foreign_keys)
-        self.assertEqual(1, schema_version)
+        self.assertEqual(2, schema_version)
 
     def test_profile_names_are_case_and_space_insensitive(self):
         profile_id = self.store.create_profile("  Sabrina   Lee  ", "123456")
@@ -141,3 +141,67 @@ class StoreTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SchemaMigrationTest(unittest.TestCase):
+    """A v1 database (no email column) must upgrade in place when the service starts."""
+
+    def setUp(self):
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.db_path = Path(self.tempdir.name) / "sabrina.db"
+        with sqlite3.connect(self.db_path) as connection:
+            connection.executescript(
+                """
+                create table schema_version (version integer not null);
+                insert into schema_version(version) values (1);
+                create table profiles (
+                    id integer primary key,
+                    username_normalized text not null unique,
+                    display_name text not null,
+                    pin_salt blob not null,
+                    pin_hash blob not null,
+                    state_json text not null,
+                    state_version integer not null default 0,
+                    created_at text not null,
+                    updated_at text not null
+                );
+                create table sessions (
+                    token_hash text primary key,
+                    profile_id integer not null references profiles(id) on delete cascade,
+                    created_at text not null,
+                    expires_at text not null
+                );
+                """
+            )
+            connection.execute(
+                "insert into profiles (username_normalized, display_name, pin_salt, pin_hash,"
+                " state_json, state_version, created_at, updated_at)"
+                " values ('owner', 'Owner', x'00', x'00', '{}', 0, 'now', 'now')"
+            )
+        self.store = Store(self.db_path)
+
+    def tearDown(self):
+        self.tempdir.cleanup()
+
+    def test_upgrades_v1_and_keeps_existing_profiles(self):
+        self.store.initialize()
+        with sqlite3.connect(self.db_path) as connection:
+            connection.row_factory = sqlite3.Row
+            version = connection.execute("select version from schema_version").fetchone()[0]
+            columns = {
+                row["name"] for row in connection.execute("pragma table_info(profiles)").fetchall()
+            }
+            owner = connection.execute(
+                "select display_name, email from profiles where username_normalized = 'owner'"
+            ).fetchone()
+        self.assertEqual(2, version)
+        self.assertIn("email", columns)
+        self.assertEqual("Owner", owner["display_name"])
+        self.assertIsNone(owner["email"])
+
+        # The upgraded row can be bound to the verified mailbox that Access will present.
+        self.store.bind_profile_email("Owner", "Alex@Example.com")
+        self.assertEqual(
+            [{"id": 1, "display_name": "Owner"}],
+            self.store.profiles_for_email("alex@example.com"),
+        )

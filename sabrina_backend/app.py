@@ -237,10 +237,34 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             return None, None
         return token, profile
 
+    def _access_email(self) -> Optional[str]:
+        """Verified mailbox forwarded by Cloudflare Access, or a development override.
+
+        Access sits in front of the hostname and only injects this header for requests that passed
+        the one-time-PIN check. The origin listens on 127.0.0.1 exclusively, so a forged header can
+        only come from a local process. SABRINA_DEV_EMAIL keeps local runs and tests usable when the
+        edge is not in the path.
+        """
+        header = (self.headers.get("Cf-Access-Authenticated-User-Email") or "").strip()
+        if header:
+            try:
+                return self.server.store.normalize_email(header)
+            except ValueError:
+                return None
+        override = os.environ.get("SABRINA_DEV_EMAIL", "").strip()
+        if override:
+            try:
+                return self.server.store.normalize_email(override)
+            except ValueError:
+                return None
+        return None
+
     def do_GET(self) -> None:
         path = urlsplit(self.path).path
         if path == "/api/health":
             self._health()
+        elif path == "/api/whoami":
+            self._whoami()
         elif path == "/api/profile":
             self._get_profile()
         elif path == "/api/wordbook/data":
@@ -264,6 +288,8 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             self._login()
         elif path == "/api/auth/logout":
             self._logout()
+        elif path == "/api/profiles":
+            self._create_profile()
         else:
             self.close_connection = True
             self._error(404, "not_found", "API endpoint not found")
@@ -292,12 +318,41 @@ class SabrinaHandler(BaseHTTPRequestHandler):
         payload = self._read_json()
         if payload is None:
             return
+        email = self._access_email()
+        profile_id = payload.get("profile_id")
+        # Preferred path once Cloudflare Access is in front: the edge already verified the mailbox,
+        # so the client only names which study profile to open under that account.
+        if isinstance(profile_id, int) and not isinstance(profile_id, bool):
+            if not email:
+                self._error(401, "no_identity", "A verified email identity is required")
+                return
+            if not self.server.store.profile_belongs_to(profile_id, email):
+                self._error(403, "forbidden", "That profile belongs to another account")
+                return
+            profile = self.server.store.get_profile(profile_id)
+            if profile is None:
+                self._error(404, "not_found", "Profile not found")
+                return
+            token = self.server.store.create_session(profile["id"])
+            self._send_json(
+                200,
+                {
+                    "token": token,
+                    "profile": {
+                        "id": profile["id"],
+                        "display_name": profile["display_name"],
+                        "expires_in_days": 90,
+                    },
+                    "created": False,
+                },
+            )
+            return
         username = payload.get("username")
         if not isinstance(username, str):
             self._error(400, "invalid_request", "Username is required")
             return
-        # The name identifies a study profile; an unused name creates one. Duplicate names are
-        # prevented by the store's unique, normalized username column.
+        # Legacy path (kept while the edge is not enabled and for local runs): the name identifies a
+        # study profile; an unused name creates one. The unique username column prevents duplicates.
         try:
             profile = self.server.store.ensure_profile(username)
         except ValueError as error:
@@ -309,12 +364,46 @@ class SabrinaHandler(BaseHTTPRequestHandler):
             {
                 "token": token,
                 "profile": {
+                    "id": profile["id"],
                     "display_name": profile["display_name"],
                     "expires_in_days": 90,
                 },
                 "created": profile["created"],
             },
         )
+
+    def _whoami(self) -> None:
+        email = self._access_email()
+        if not email:
+            self._error(401, "no_identity", "A verified email identity is required")
+            return
+        self._send_json(
+            200,
+            {"email": email, "profiles": self.server.store.profiles_for_email(email)},
+        )
+
+    def _create_profile(self) -> None:
+        email = self._access_email()
+        if not email:
+            self._error(401, "no_identity", "A verified email identity is required")
+            return
+        payload = self._read_json()
+        if payload is None:
+            return
+        display_name = payload.get("display_name")
+        if not isinstance(display_name, str):
+            self._error(400, "invalid_request", "display_name is required")
+            return
+        try:
+            profile = self.server.store.create_profile_for_email(email, display_name)
+        except ValueError as error:
+            message = str(error)
+            if "already exists" in message:
+                self._error(409, "name_taken", "That name is already in use")
+            else:
+                self._error(400, "invalid_username", message)
+            return
+        self._send_json(201, {"email": email, "profile": profile})
 
     def _logout(self) -> None:
         payload = self._read_json()

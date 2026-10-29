@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 SESSION_DAYS = 90
 PBKDF2_ITERATIONS = 600_000
 EMPTY_STATE = {
@@ -86,7 +86,8 @@ class Store:
                     state_json text not null,
                     state_version integer not null default 0,
                     created_at text not null,
-                    updated_at text not null
+                    updated_at text not null,
+                    email text
                 );
 
                 create table if not exists sessions (
@@ -100,6 +101,7 @@ class Store:
                     on sessions(profile_id);
                 create index if not exists sessions_expires_at_idx
                     on sessions(expires_at);
+
                 """
             )
             row = connection.execute("select version from schema_version").fetchone()
@@ -107,8 +109,22 @@ class Store:
                 connection.execute(
                     "insert into schema_version(version) values (?)", (SCHEMA_VERSION,)
                 )
+            elif row["version"] == 1:
+                # v2: Cloudflare Access identifies the account by verified email, and one account
+                # may hold several study profiles (a shared family device).
+                columns = {
+                    info["name"]
+                    for info in connection.execute("pragma table_info(profiles)").fetchall()
+                }
+                if "email" not in columns:
+                    connection.execute("alter table profiles add column email text")
+                connection.execute("update schema_version set version = 2")
             elif row["version"] != SCHEMA_VERSION:
                 raise RuntimeError(f"Unsupported schema version: {row['version']}")
+            # Created after the migration above so a v1 database without the column still upgrades.
+            connection.execute(
+                "create index if not exists profiles_email_idx on profiles(email)"
+            )
         try:
             os.chmod(self.db_path, 0o600)
         except OSError:
@@ -180,6 +196,73 @@ class Store:
                 raise
             return {"id": existing["id"], "display_name": existing["display_name"], "created": False}
         return {"id": profile_id, "display_name": normalized_name, "created": True}
+
+    # ---- Cloudflare Access identity ------------------------------------------------------------
+    # The edge verifies the mailbox with a one-time PIN and forwards the address; the address is the
+    # account key, and one account can own several study profiles (a shared family device).
+
+    @staticmethod
+    def normalize_email(email: str) -> str:
+        if not isinstance(email, str):
+            raise ValueError("Email must be text")
+        normalized = email.strip().casefold()
+        if not 3 <= len(normalized) <= 254 or "@" not in normalized:
+            raise ValueError("Email is not valid")
+        return normalized
+
+    def profiles_for_email(self, email: str) -> List[Dict[str, Any]]:
+        normalized = self.normalize_email(email)
+        with self._connect() as connection:
+            rows = connection.execute(
+                "select id, display_name from profiles where email = ? order by id",
+                (normalized,),
+            ).fetchall()
+        return [{"id": row["id"], "display_name": row["display_name"]} for row in rows]
+
+    def create_profile_for_email(self, email: str, display_name: str) -> Dict[str, Any]:
+        normalized_email = self.normalize_email(email)
+        name = self.normalize_display_name(display_name)
+        profile_id = self.create_profile(name, secrets.token_urlsafe(32))
+        with self._connect() as connection:
+            connection.execute(
+                "update profiles set email = ? where id = ?", (normalized_email, profile_id)
+            )
+        return {"id": profile_id, "display_name": name}
+
+    def get_profile(self, profile_id: int) -> Optional[Dict[str, Any]]:
+        with self._connect() as connection:
+            row = connection.execute(
+                "select id, display_name, email from profiles where id = ?", (profile_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        return {"id": row["id"], "display_name": row["display_name"], "email": row["email"]}
+
+    def profile_belongs_to(self, profile_id: int, email: str) -> bool:
+        try:
+            normalized = self.normalize_email(email)
+        except ValueError:
+            return False
+        with self._connect() as connection:
+            row = connection.execute(
+                "select 1 from profiles where id = ? and email = ?", (profile_id, normalized)
+            ).fetchone()
+        return row is not None
+
+    def bind_profile_email(self, display_name: str, email: str) -> None:
+        """Attach an existing (pre-Access) profile to a verified mailbox."""
+        normalized_name = self.normalize_display_name(display_name)
+        normalized_email = self.normalize_email(email)
+        with self._connect() as connection:
+            row = connection.execute(
+                "select id from profiles where username_normalized = ?",
+                (self.normalize_username(normalized_name),),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"No profile named {normalized_name}")
+            connection.execute(
+                "update profiles set email = ? where id = ?", (normalized_email, row["id"])
+            )
 
     def authenticate(self, username: str, pin: str) -> Optional[Dict[str, Any]]:
         try:

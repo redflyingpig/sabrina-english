@@ -539,6 +539,59 @@ class AppTest(unittest.TestCase):
             self.assertEqual("invalid_username", body["error"], repr(bad)[:20])
         self.assertEqual(count, len(self.server.store.list_profiles()))
 
+    def test_access_identity_creates_and_lists_profiles(self):
+        headers = {"Cf-Access-Authenticated-User-Email": "Alex@Example.com"}
+        status, _, body = self.request("GET", "/api/whoami", headers=headers)
+        self.assertEqual(200, status)
+        self.assertEqual("alex@example.com", body["email"])
+        self.assertEqual([], body["profiles"])
+
+        status, _, created = self.request(
+            "POST", "/api/profiles", {"display_name": "Alex"}, headers=headers
+        )
+        self.assertEqual(201, status)
+        profile_id = created["profile"]["id"]
+
+        status, _, body = self.request("GET", "/api/whoami", headers=headers)
+        self.assertEqual(200, status)
+        self.assertEqual([{"id": profile_id, "display_name": "Alex"}], body["profiles"])
+
+        status, _, body = self.request(
+            "POST", "/api/auth/login", {"profile_id": profile_id}, headers=headers
+        )
+        self.assertEqual(200, status)
+        self.assertEqual("Alex", body["profile"]["display_name"])
+        status, _, state = self.request("GET", "/api/profile", token=body["token"])
+        self.assertEqual(200, status)
+        self.assertEqual("Alex", state["display_name"])
+
+    def test_duplicate_display_name_is_rejected_across_accounts(self):
+        alex = {"Cf-Access-Authenticated-User-Email": "alex@example.com"}
+        bob = {"Cf-Access-Authenticated-User-Email": "bob@example.com"}
+        status, _, _ = self.request("POST", "/api/profiles", {"display_name": "Kim"}, headers=alex)
+        self.assertEqual(201, status)
+        status, _, body = self.request("POST", "/api/profiles", {"display_name": "  kim "}, headers=bob)
+        self.assertEqual(409, status)
+        self.assertEqual("name_taken", body["error"])
+
+    def test_profile_cannot_be_opened_by_another_account(self):
+        alex = {"Cf-Access-Authenticated-User-Email": "alex@example.com"}
+        bob = {"Cf-Access-Authenticated-User-Email": "bob@example.com"}
+        _, _, created = self.request("POST", "/api/profiles", {"display_name": "Sam"}, headers=alex)
+        profile_id = created["profile"]["id"]
+        status, _, body = self.request(
+            "POST", "/api/auth/login", {"profile_id": profile_id}, headers=bob
+        )
+        self.assertEqual(403, status)
+        self.assertEqual("forbidden", body["error"])
+
+    def test_whoami_requires_a_verified_identity(self):
+        status, _, body = self.request("GET", "/api/whoami")
+        self.assertEqual(401, status)
+        self.assertEqual("no_identity", body["error"])
+        status, _, _ = self.request("POST", "/api/profiles", {"display_name": "Nope"})
+        self.assertEqual(401, status)
+
     def test_api_security_headers_disable_caching(self):
         status, headers, _ = self.request("GET", "/api/health")
         self.assertEqual(200, status)

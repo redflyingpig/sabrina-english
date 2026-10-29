@@ -296,9 +296,12 @@ class SabrinaHandler(BaseHTTPRequestHandler):
         if not isinstance(username, str):
             self._error(400, "invalid_request", "Username is required")
             return
-        profile = self.server.store.find_profile(username)
-        if profile is None:
-            self._error(401, "unknown_profile", "Profile not found")
+        # The name identifies a study profile; an unused name creates one. Duplicate names are
+        # prevented by the store's unique, normalized username column.
+        try:
+            profile = self.server.store.ensure_profile(username)
+        except ValueError as error:
+            self._error(400, "invalid_username", str(error))
             return
         token = self.server.store.create_session(profile["id"])
         self._send_json(
@@ -309,6 +312,7 @@ class SabrinaHandler(BaseHTTPRequestHandler):
                     "display_name": profile["display_name"],
                     "expires_in_days": 90,
                 },
+                "created": profile["created"],
             },
         )
 

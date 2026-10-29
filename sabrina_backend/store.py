@@ -158,6 +158,29 @@ class Store:
         except sqlite3.IntegrityError as error:
             raise ValueError("Profile already exists") from error
 
+    def ensure_profile(self, display_name: str) -> Dict[str, Any]:
+        """Return the profile for this name, creating it the first time it is used.
+
+        The site is shared with classmates, so the name is a study-profile id rather than a
+        credential: typing an unused name creates that profile. The unique username_normalized
+        column stays the duplicate guard (case- and spacing-insensitive), and the random PIN stored
+        here only satisfies the legacy not-null columns -- it is never revealed and plays no part in
+        this sign-in path.
+        """
+        normalized_name = self.normalize_display_name(display_name)
+        existing = self.find_profile(normalized_name)
+        if existing is not None:
+            return {"id": existing["id"], "display_name": existing["display_name"], "created": False}
+        try:
+            profile_id = self.create_profile(normalized_name, secrets.token_urlsafe(32))
+        except ValueError:
+            # Lost a race with a concurrent request for the same name: use the winner's profile.
+            existing = self.find_profile(normalized_name)
+            if existing is None:
+                raise
+            return {"id": existing["id"], "display_name": existing["display_name"], "created": False}
+        return {"id": profile_id, "display_name": normalized_name, "created": True}
+
     def authenticate(self, username: str, pin: str) -> Optional[Dict[str, Any]]:
         try:
             normalized = self.normalize_username(username)

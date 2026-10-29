@@ -48,17 +48,21 @@ class FrontendContractTest(unittest.TestCase):
         self.assertNotIn("SUPABASE_", self.html)
         self.assertNotIn("callProfileRpc", self.html)
 
-    def test_login_form_has_owner_sabrina_max_without_pin(self):
-        select = self.attributes_for_id("profileNameInput")
-        self.assertEqual("select", next(tag for tag, attrs in self.elements.elements if attrs.get("id") == "profileNameInput"))
-        self.assertNotIn('id="profilePinInput"', self.html)
+    def test_login_form_takes_any_username_without_pin(self):
+        tag = next(tag for tag, attrs in self.elements.elements if attrs.get("id") == "profileNameInput")
+        self.assertEqual("input", tag)
+        field = self.attributes_for_id("profileNameInput")
+        self.assertEqual("text", field.get("type"))
+        self.assertEqual("32", field.get("maxlength"))
+        self.assertNotIn("profilePinInput", self.html)
         self.assertNotIn("profilePinInput", self.function_body("loginProfile"))
         self.assertIn("body: { username }", self.function_body("loginProfile"))
-        self.assertIn('error.payload?.error === "unknown_profile"', self.function_body("loginProfile"))
+        self.assertIn('error.payload?.error === "invalid_username"', self.function_body("loginProfile"))
         self.assertIn("连接失败，请稍后再试。", self.function_body("loginProfile"))
+        # The name is a study-profile id, not a fixed roster: no hard-coded options remain.
+        self.assertNotIn("<select id=\"profileNameInput\"", self.html)
         for name in ("Owner", "Sabrina", "Max"):
-            self.assertIn(f'value="{name}"', self.html)
-        self.assertTrue(select)
+            self.assertNotIn(f'<option value="{name}"', self.html)
 
     def test_login_dialog_is_viewport_bounded(self):
         dialog_rule = re.search(r"\.profile-dialog\s*\{(.*?)\}", self.html, re.DOTALL)

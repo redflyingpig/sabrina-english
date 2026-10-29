@@ -23,17 +23,29 @@ install -m 600 course.json "$HOME/Library/Application Support/SabrinaEnglish/can
 
 `course.json` 由 MacBook 上的 `~/projects/sabrina-cantonese` 运行 `python3 build/build.py` 生成。它只经 `/api/cantonese/course` 提供给已登录档案，替换后不必重启服务。学习进度存在档案的 `cantonese` 字段，随档案同步和备份。
 
-## 初始化三个档案
+## 档案由用户自己建立
+
+网站不限制档案数量，也没有预置用户名单。打开网站后在「学习用户名」里输入任意名字即可进入：
+
+- 名字**第一次出现时自动建档**，返回 `created: true`；
+- 之后输入**同一个名字**继续使用该档案，返回 `created: false`；
+- 名字就是档案 ID，不是登录凭据：没有 PIN，也没有密码。
+
+**重名规则**：`profiles.username_normalized` 上有唯一约束，比较前会去掉首尾空白、合并连续空格并转小写。因此 `Sabrina`、`sabrina`、`  SABRINA  ` 指向同一个档案，不会建出两个。名称长度限制 1–32 个字符，越界请求返回 `400 invalid_username`。
+
+`init-profiles` 仍然可用，但只用于给 `Owner`、`Sabrina`、`Max` 预建档案，不再是进入网站的前提：
 
 ```sh
 SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin init-profiles
 ```
 
-这会创建 `Owner`、`Sabrina`、`Max`。网站只需选择用户名即可登录；数据库中的旧 PIN 字段仅为兼容现有 schema 保留，不再参与网站认证。
+数据库里的 `pin_salt` / `pin_hash` 列是历史遗留的 not null 字段；自动建档时写入一个随机、不对外透露的值，不参与任何认证流程。查看现有档案：
 
-## 选择用户名登录
+```sh
+SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish" /usr/bin/python3 -m sabrina_backend.admin list-profiles
+```
 
-打开网站后选择 `Owner`、`Sabrina` 或 `Max` 即可进入对应档案。用户名只用于区分学习记录，不提供访问控制。
+**安全边界（已知取舍）**：既然名字只是 ID，任何知道某个同学名字的人都能进入该档案，看到并修改其学习记录。目前档案里只有学习进度，没有隐私内容；如果以后要放个人资料，需要重新引入凭据。
 
 ## 健康检查
 

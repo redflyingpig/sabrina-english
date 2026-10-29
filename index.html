@@ -974,16 +974,13 @@
         <p class="eyebrow">Your study profile</p>
         <h2>进入学习档案</h2>
       </div>
-      <p>选择你的学习档案即可进入。换手机或电脑时选择同一个用户名，就能继续学习。</p>
+      <p>输入你的名字即可开始。换手机或电脑时输入同一个名字，就能继续原来的学习记录。</p>
       <div class="profile-field">
         <label for="profileNameInput">学习用户名</label>
-        <select id="profileNameInput" name="profileName" autocomplete="username" required>
-          <option value="Owner">Owner</option>
-          <option value="Sabrina">Sabrina</option>
-          <option value="Max">Max</option>
-        </select>
+        <input id="profileNameInput" name="profileName" type="text" autocomplete="nickname"
+               maxlength="32" placeholder="例如 Sabrina" required>
       </div>
-      <div class="profile-note">这是家庭内部使用的学习工具，请选择自己的档案。</div>
+      <div class="profile-note">这个名字就是你的学习档案 ID：第一次使用会自动建立，之后输入同一个名字即可继续。请记住自己的写法，也不要和同学用同一个名字。</div>
       <button class="primary-btn" type="submit">进入学习空间</button>
     </form>
   </dialog>
@@ -1228,9 +1225,10 @@
 
     async function loginProfile(event) {
       event.preventDefault();
-      const username = profileNameInput.value;
+      const username = profileNameInput.value.replace(/\s+/g, " ").trim();
       if (!username) {
-        showToast("请选择学习用户名。");
+        showToast("请输入学习用户名。");
+        profileNameInput.focus();
         return;
       }
       const submitButton = profileForm.querySelector('button[type="submit"]');
@@ -1255,9 +1253,10 @@
         lessonSetIndex = getModeOccurrenceIndex(mode, today) * batchSizes[mode];
         await loadContentLibrary();
         refreshWordbookForSession();
+        if (result.created) showToast(`已建立学习档案：${activeProfile.name}`);
       } catch (error) {
-        showToast(error.payload?.error === "unknown_profile"
-          ? "找不到这个学习档案。"
+        showToast(error.payload?.error === "invalid_username"
+          ? "用户名不可用，请输入 1–32 个字符。"
           : "连接失败，请稍后再试。");
         profileNameInput.focus();
       } finally {

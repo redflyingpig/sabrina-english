@@ -492,12 +492,52 @@ class AppTest(unittest.TestCase):
         self.assertEqual(403, status)
         self.assertEqual("forbidden_origin", body["error"])
 
-    def test_unknown_username_is_rejected_without_creating_a_session(self):
-        status, _, body = self.request(
-            "POST", "/api/auth/login", {"username": "Unknown"}
+    def test_new_username_creates_a_study_profile(self):
+        status, _, body = self.request("POST", "/api/auth/login", {"username": "Chloe"})
+        self.assertEqual(200, status)
+        self.assertTrue(body["created"])
+        self.assertEqual("Chloe", body["profile"]["display_name"])
+        status, _, profile = self.request("GET", "/api/profile", token=body["token"])
+        self.assertEqual(200, status)
+        self.assertEqual("Chloe", profile["display_name"])
+
+    def test_existing_username_signs_into_the_same_profile(self):
+        status, _, body = self.request("POST", "/api/auth/login", {"username": "Sabrina"})
+        self.assertEqual(200, status)
+        self.assertFalse(body["created"])
+        state = {"history": [], "favorites": [], "streak": {"count": 3}}
+        status, _, saved = self.request(
+            "PUT", "/api/profile", {"state_version": 0, "state": state}, token=body["token"]
         )
-        self.assertEqual(401, status)
-        self.assertEqual("unknown_profile", body["error"])
+        self.assertEqual(200, status)
+        # Different case and spacing must resolve to the same profile, not a new one.
+        status, _, again = self.request("POST", "/api/auth/login", {"username": "  sAbRiNa "})
+        self.assertEqual(200, status)
+        self.assertFalse(again["created"])
+        status, _, profile = self.request("GET", "/api/profile", token=again["token"])
+        self.assertEqual(200, status)
+        self.assertEqual("Sabrina", profile["display_name"])
+        self.assertEqual(saved["state"], profile["state"])
+
+    def test_duplicate_username_variants_do_not_create_extra_profiles(self):
+        status, _, created = self.request("POST", "/api/auth/login", {"username": "Jordan"})
+        self.assertEqual(200, status)
+        self.assertTrue(created["created"])
+        count = len(self.server.store.list_profiles())
+        for variant in ("jordan", "JORDAN", "  Jordan  "):
+            status, _, body = self.request("POST", "/api/auth/login", {"username": variant})
+            self.assertEqual(200, status, variant)
+            self.assertFalse(body["created"], variant)
+            self.assertEqual("Jordan", body["profile"]["display_name"], variant)
+        self.assertEqual(count, len(self.server.store.list_profiles()))
+
+    def test_invalid_username_is_rejected_without_creating_a_profile(self):
+        count = len(self.server.store.list_profiles())
+        for bad in ("", "   ", "x" * 33):
+            status, _, body = self.request("POST", "/api/auth/login", {"username": bad})
+            self.assertEqual(400, status, repr(bad)[:20])
+            self.assertEqual("invalid_username", body["error"], repr(bad)[:20])
+        self.assertEqual(count, len(self.server.store.list_profiles()))
 
     def test_api_security_headers_disable_caching(self):
         status, headers, _ = self.request("GET", "/api/health")

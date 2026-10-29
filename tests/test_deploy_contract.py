@@ -109,8 +109,8 @@ class DeployContractTest(unittest.TestCase):
         operations = (ROOT / "OPERATIONS.md").read_text(encoding="utf-8")
         for heading in (
             "安装与升级",
-            "初始化三个档案",
-            "选择用户名登录",
+            "廣東話课程内容",
+            "档案由用户自己建立",
             "健康检查",
             "日志",
             "备份",

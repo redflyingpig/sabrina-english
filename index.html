@@ -1376,7 +1376,7 @@
       } catch (error) {
         const code = error.payload?.error;
         showToast(code === "name_taken"
-          ? "这个名字已经有同学在用了，换一个吧。"
+          ? "这个名字属于另一个邮箱账号：如果这是你以前的档案，请点「换一个邮箱账号」用当初的邮箱验证；否则换一个新名字。"
           : code === "invalid_username"
             ? "用户名不可用，请输入 1–32 个字符。"
             : "连接失败，请稍后再试。");
@@ -2036,7 +2036,8 @@
       }
       if (identityEmail) {
         profileIntro.textContent = `已通过邮箱验证：${identityEmail}`;
-        profileNote.textContent = "给你的学习档案起个名字。这个名字只会输入这一次，之后用邮箱自动识别，不会再因为拼错而建出空档案。";
+        profileNote.textContent = "这个邮箱名下还没有学习档案。给你的档案起个名字——只需要输入这一次，之后用邮箱自动识别。"
+          + "如果你以前用过这个网站，请先确认邮箱和当初绑定的一致（可以点下面的「换一个邮箱账号」）。";
         profileSubmit.textContent = "建立学习档案";
         return;
       }

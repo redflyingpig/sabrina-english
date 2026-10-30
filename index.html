@@ -900,6 +900,7 @@
           <div class="sync-state" id="syncState">保存在此设备</div>
         </div>
         <div class="tool-actions">
+          <button class="secondary-btn" id="newProfile" type="button">新建档案</button>
           <button class="secondary-btn" id="copyProfileLink" type="button">复制用户链接</button>
           <button class="secondary-btn" id="changeProfile" type="button">切换用户</button>
         </div>
@@ -1124,6 +1125,7 @@
     const syncState = document.getElementById("syncState");
     const copyProfileLink = document.getElementById("copyProfileLink");
     const changeProfile = document.getElementById("changeProfile");
+    const newProfile = document.getElementById("newProfile");
     const profileDialog = document.getElementById("profileDialog");
     const profileForm = document.getElementById("profileForm");
     const profileNameInput = document.getElementById("profileNameInput");
@@ -1193,6 +1195,7 @@
     copyProfileLink.addEventListener("click", copyUserLink);
     changeProfile.addEventListener("click", logoutProfile);
     profileForm.addEventListener("submit", loginProfile);
+    newProfile.addEventListener("click", openCreateProfileDialog);
     switchAccount.addEventListener("click", () => {
       // Cloudflare Access owns the session; leaving it lets a different mailbox verify.
       window.location.href = "/cdn-cgi/access/logout";
@@ -1210,29 +1213,53 @@
       }
     });
 
-        async function initializeApp() {
-      // The edge identity decides whether this browser may skip straight to a profile picker.
+            function openCreateProfileDialog() {
+      creatingProfile = true;
+      renderProfileDialog();
+      if (!profileDialog.open) {
+        if (typeof profileDialog.showModal === "function") {
+          profileDialog.showModal();
+        } else {
+          profileDialog.setAttribute("open", "");
+        }
+      }
+      profileNameInput.focus();
+    }
+
+    async function initializeApp() {
+      // A returning visitor should land in their profile, not be asked to choose. The mailbox is
+      // already proven, so a remembered profile (or the only one) is opened directly; a picker is
+      // only shown when the account really has a choice to make.
       await refreshIdentity();
       const remembered = localStorage.getItem(PROFILE_ID_KEY);
-      const owned = remembered !== null && (
-        !identityEmail || identityProfiles.some((profile) => String(profile.id) === String(remembered))
-      );
-      if (!activeProfile || !sessionToken || (identityEmail && !owned)) {
+      const owned = identityEmail
+        ? identityProfiles.find((profile) => String(profile.id) === String(remembered))
+        : null;
+      const only = identityEmail && identityProfiles.length === 1 ? identityProfiles[0] : null;
+      const resumeOwned = !identityEmail || Boolean(owned);
+
+      if (activeProfile && sessionToken && resumeOwned) {
+        profileBar.hidden = false;
+        profileName.textContent = activeProfile.name;
+        migrateOwnerLocalData();
+        migrateLegacyData();
+        await loadProfileFromServer();
         await loadContentLibrary();
-        renderAll();
-        showLoginDialog();
+        refreshWordbookForSession();
         return;
       }
 
-      profileBar.hidden = false;
-      profileName.textContent = activeProfile.name;
-      migrateOwnerLocalData();
-      migrateLegacyData();
-      await loadProfileFromServer();
+      const target = owned || only;
+      if (target) {
+        await loadContentLibrary();
+        renderAll();
+        await signInWithProfile(target.id);
+        return;
+      }
+
       await loadContentLibrary();
-      // The wordbook may have rendered from this device's cache before the
-      // server state arrived; redraw it once with the synced progress.
-      refreshWordbookForSession();
+      renderAll();
+      showLoginDialog();
     }
 
     async function loadContentLibrary() {
@@ -2044,16 +2071,6 @@
           button.addEventListener("click", () => signInWithProfile(profile.id));
           profileChoices.appendChild(button);
         }
-        const addProfile = document.createElement("button");
-        addProfile.type = "button";
-        addProfile.className = "link-btn";
-        addProfile.textContent = "＋ 再建一个学习档案";
-        addProfile.addEventListener("click", () => {
-          creatingProfile = true;
-          renderProfileDialog();
-          profileNameInput.focus();
-        });
-        profileChoices.appendChild(addProfile);
         return;
       }
 

@@ -76,7 +76,7 @@ class FrontendContractTest(unittest.TestCase):
         # A remembered profile is only reused when it belongs to the current account.
         init = self.function_body("initializeApp")
         self.assertIn("await refreshIdentity()", init)
-        self.assertIn("identityProfiles.some", init)
+        self.assertIn("identityProfiles.find", init)
 
     def test_hidden_wins_over_layout_display(self):
         # Regression: .profile-field { display: grid } outranked the UA [hidden] rule, so the name
@@ -87,8 +87,19 @@ class FrontendContractTest(unittest.TestCase):
         body = self.function_body("renderProfileDialog")
         self.assertIn("profileNameField.hidden = choosing", body)
         self.assertIn("profileSubmit.hidden = choosing", body)
-        self.assertIn("再建一个学习档案", body)
         self.assertIn("creatingProfile", body)
+        # Adding a profile belongs in the signed-in bar, not in the chooser.
+        self.assertNotIn("再建一个学习档案", body)
+        self.assertIn('id="newProfile"', self.html)
+        self.assertIn("openCreateProfileDialog", self.html)
+
+    def test_returning_visitor_enters_without_a_picker(self):
+        init = self.function_body("initializeApp")
+        self.assertIn("await refreshIdentity()", init)
+        self.assertIn("identityProfiles.length === 1", init)
+        self.assertIn("await signInWithProfile(target.id)", init)
+        # The picker is the fallback, not the first screen.
+        self.assertLess(init.index("await signInWithProfile(target.id)"), init.index("showLoginDialog()"))
 
     def test_login_dialog_is_viewport_bounded(self):
         dialog_rule = re.search(r"\.profile-dialog\s*\{(.*?)\}", self.html, re.DOTALL)

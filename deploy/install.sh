@@ -47,7 +47,7 @@ launchctl kickstart -k "$DOMAIN_TARGET/ai.sabrina-english.site"
 attempt=0
 while [ "$attempt" -lt 20 ]; do
   if curl --fail --silent http://127.0.0.1:18880/api/health >/dev/null; then
-    echo "Sabrina English 已运行：http://127.0.0.1:18880"
+    echo "Sabrina's Study Room 已运行：http://127.0.0.1:18880"
     exit 0
   fi
   attempt=$((attempt + 1))

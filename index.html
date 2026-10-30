@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Go Sabrina Go</title>
+  <title>Sabrina's Study Room</title>
   <link rel="stylesheet" href="/assets/cantonese.css">
   <style>
     :root {
@@ -915,7 +915,7 @@
       <header class="hero" data-view="today">
         <div>
           <p class="eyebrow">Today’s English</p>
-          <h1>Go Sabrina Go</h1>
+          <h1>Sabrina's Study Room</h1>
           <p class="subtitle" id="lessonSubtitle"></p>
         </div>
         <div class="date-card" aria-label="Current lesson date">
@@ -1943,7 +1943,7 @@
 
     function exportBackup() {
       const payload = {
-        app: "Go Sabrina Go",
+        app: "Sabrina's Study Room",
         version: BACKUP_VERSION,
         exportedAt: new Date().toISOString(),
         history: getHistory(),
@@ -2575,9 +2575,9 @@
         else link.removeAttribute("aria-current");
       });
       document.title = {
-        wordbook: "10天单词书 · Go Sabrina Go",
-        cantonese: "廣東話 · Go Sabrina Go"
-      }[route.view] || "Go Sabrina Go";
+        wordbook: "10天单词书 · Sabrina's Study Room",
+        cantonese: "廣東話 · Sabrina's Study Room"
+      }[route.view] || "Sabrina's Study Room";
       if (route.view === "wordbook") wordbook.render(route);
       if (route.view === "cantonese") window.SabrinaCantoneseApp?.render();
       else window.SabrinaCantoneseApp?.hide();

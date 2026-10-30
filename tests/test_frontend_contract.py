@@ -210,8 +210,8 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn("payload.wordbook", self.function_body("importBackup"))
 
     def test_site_is_titled_go_sabrina_go(self):
-        self.assertIn("<title>Go Sabrina Go</title>", self.html)
-        self.assertIn("<h1>Go Sabrina Go</h1>", self.html)
+        self.assertIn("<title>Sabrina's Study Room</title>", self.html)
+        self.assertIn("<h1>Sabrina's Study Room</h1>", self.html)
         self.assertNotIn("Sabrina English", self.html)
 
     def test_cantonese_tab_is_wired_into_the_page(self):

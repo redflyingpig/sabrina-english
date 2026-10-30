@@ -78,6 +78,18 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn("await refreshIdentity()", init)
         self.assertIn("identityProfiles.some", init)
 
+    def test_hidden_wins_over_layout_display(self):
+        # Regression: .profile-field { display: grid } outranked the UA [hidden] rule, so the name
+        # field stayed visible next to the profile buttons and the dialog showed two flows at once.
+        self.assertRegex(self.html, r"\[hidden\]\s*\{[^}]*display:\s*none\s*!important")
+
+    def test_profile_picker_offers_only_the_picker(self):
+        body = self.function_body("renderProfileDialog")
+        self.assertIn("profileNameField.hidden = choosing", body)
+        self.assertIn("profileSubmit.hidden = choosing", body)
+        self.assertIn("再建一个学习档案", body)
+        self.assertIn("creatingProfile", body)
+
     def test_login_dialog_is_viewport_bounded(self):
         dialog_rule = re.search(r"\.profile-dialog\s*\{(.*?)\}", self.html, re.DOTALL)
         self.assertIsNotNone(dialog_rule)

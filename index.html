@@ -30,6 +30,13 @@
       box-sizing: border-box;
     }
 
+    /* Author display rules such as the profile field's grid layout outrank the browser's
+       user-agent [hidden] rule, which made the name field stay visible next to the profile
+       buttons and showed two flows at once. */
+    [hidden] {
+      display: none !important;
+    }
+
     body {
       margin: 0;
       min-height: 100vh;
@@ -1023,7 +1030,7 @@
       <p id="profileIntro">输入你的名字即可开始。换手机或电脑时输入同一个名字，就能继续原来的学习记录。</p>
       <div class="profile-choices" id="profileChoices" hidden></div>
       <div class="profile-field" id="profileNameField">
-        <label for="profileNameInput">学习用户名</label>
+        <label for="profileNameInput" id="profileNameLabel">学习用户名</label>
         <input id="profileNameInput" name="profileName" type="text" autocomplete="nickname"
                maxlength="32" placeholder="例如 Sabrina">
       </div>
@@ -1126,6 +1133,7 @@
     const profileNote = document.getElementById("profileNote");
     const profileSubmit = document.getElementById("profileSubmit");
     const switchAccount = document.getElementById("switchAccount");
+    const profileNameLabel = document.getElementById("profileNameLabel");
 
     // Cloudflare Access verifies the mailbox at the edge; the address is the account key and one
     // account may own several study profiles (shared family device). Without an identity the page
@@ -1133,6 +1141,8 @@
     const PROFILE_ID_KEY = "sabrinaEnglish:profileId";
     let identityEmail = null;
     let identityProfiles = [];
+    // True while an already-signed-in account chooses to add another profile instead of picking one.
+    let creatingProfile = false;
 
     dateText.textContent = new Intl.DateTimeFormat("en-US", {
       weekday: "short",
@@ -1340,7 +1350,7 @@
 
     async function loginProfile(event) {
       event.preventDefault();
-      if (identityEmail && identityProfiles.length) return;
+      if (identityEmail && identityProfiles.length && !creatingProfile) return;
       const username = profileNameInput.value.replace(/\s+/g, " ").trim();
       if (!username) {
         showToast("请输入学习用户名。");
@@ -2013,16 +2023,18 @@
       }
     }
 
-    function renderProfileDialog() {
-      const choosing = Boolean(identityEmail && identityProfiles.length);
+        function renderProfileDialog() {
+      const hasProfiles = Boolean(identityEmail && identityProfiles.length);
+      const choosing = hasProfiles && !creatingProfile;
       profileChoices.hidden = !choosing;
       profileChoices.replaceChildren();
       profileNameField.hidden = choosing;
       profileSubmit.hidden = choosing;
       switchAccount.hidden = !identityEmail;
+
       if (choosing) {
-        profileIntro.textContent = `已通过邮箱验证：${identityEmail}。选择要进入的学习档案。`;
-        profileNote.textContent = "换设备后用同一个邮箱验证，就能回到这些档案。需要换人使用？点下面的「换一个邮箱账号」。";
+        profileIntro.textContent = `已通过邮箱验证：${identityEmail}。选择要进入的档案：`;
+        profileNote.textContent = "换设备后用同一个邮箱验证，就能回到这些档案。要换人使用，点最下面的「换一个邮箱账号」。";
         for (const profile of identityProfiles) {
           const button = document.createElement("button");
           button.type = "button";
@@ -2032,23 +2044,39 @@
           button.addEventListener("click", () => signInWithProfile(profile.id));
           profileChoices.appendChild(button);
         }
+        const addProfile = document.createElement("button");
+        addProfile.type = "button";
+        addProfile.className = "link-btn";
+        addProfile.textContent = "＋ 再建一个学习档案";
+        addProfile.addEventListener("click", () => {
+          creatingProfile = true;
+          renderProfileDialog();
+          profileNameInput.focus();
+        });
+        profileChoices.appendChild(addProfile);
         return;
       }
+
       if (identityEmail) {
-        profileIntro.textContent = `已通过邮箱验证：${identityEmail}`;
-        profileNote.textContent = "这个邮箱名下还没有学习档案。给你的档案起个名字——只需要输入这一次，之后用邮箱自动识别。"
-          + "如果你以前用过这个网站，请先确认邮箱和当初绑定的一致（可以点下面的「换一个邮箱账号」）。";
-        profileSubmit.textContent = "建立学习档案";
+        profileIntro.textContent = hasProfiles
+          ? `已通过邮箱验证：${identityEmail}。给新档案起个名字：`
+          : `已通过邮箱验证：${identityEmail}。为新档案起个名字：`;
+        profileNote.textContent = "名字只是显示用，建立后不需要再输入；以后打开网站会直接用邮箱认出你。";
+        profileNameLabel.textContent = "档案名字";
+        profileSubmit.textContent = "建立并进入";
         return;
       }
+
       profileIntro.textContent = "输入你的名字即可开始。换手机或电脑时输入同一个名字，就能继续原来的学习记录。";
       profileNote.textContent = "这个名字就是你的学习档案 ID：第一次使用会自动建立，之后输入同一个名字即可继续。";
+      profileNameLabel.textContent = "学习用户名";
       profileSubmit.textContent = "进入学习空间";
     }
 
-    function showLoginDialog() {
+        function showLoginDialog() {
+      creatingProfile = false;
       renderProfileDialog();
-      if (activeProfile) profileNameInput.value = activeProfile.name;
+      if (!profileNameField.hidden && activeProfile) profileNameInput.value = activeProfile.name;
       if (!profileDialog.open) {
         if (typeof profileDialog.showModal === "function") {
           profileDialog.showModal();
@@ -2056,7 +2084,7 @@
           profileDialog.setAttribute("open", "");
         }
       }
-      if (!identityProfiles.length) profileNameInput.focus();
+      if (!profileNameField.hidden) profileNameInput.focus();
     }
 
     function profileIdFor(name) {

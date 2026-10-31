@@ -52,19 +52,20 @@ Vault 名 `Sabrina Config`。每行一个名字，`- 名字` 或裸名字都可�
 - 同学的名字
 ```
 
-**iCloud 需要一次授权**：macOS 不允许后台服务读取 iCloud Drive，日志里会看到
-`Operation not permitted`。给运行服务的 Python 授予「完全磁盘访问」后即可自动读取：
+**iCloud 的读取方式**：macOS 不允许后台服务直接读 iCloud Drive（日志里的
+`Operation not permitted`）。服务在直读失败时会自动改用 **node** 读同一个文件——本机的 node
+已在「完全磁盘访问」名单里，因此 Obsidian 里改完保存即可生效，不需要手动同步。
 
-1. 系统设置 → 隐私与安全性 → 完全磁盘访问
-2. 点 `+`，按 `⌘⇧G` 粘贴
-   `/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app`
-3. 打开开关，然后 `./deploy/install.sh` 重启服务
-
-未授权时服务会自动退回到本机兜底文件 `~/Sabrina Config/allowlist.md`（vault 之外的普通目录），网站不会因此不可用，但 Obsidian 里的改动不会生效。此时可以在终端（能读 iCloud 的上下文）手动同步：
+如果以后给运行服务的 Python 也授予了完全磁盘访问，会直接读、不再走 node。两者都不可用时，
+服务退回本机兜底文件 `~/Sabrina Config/allowlist.md`（vault 之外的普通目录），此时可以在终端
+手动同步：
 
 ```sh
 python3 -m sabrina_backend.admin sync-allowlist
 ```
+
+依赖：兜底读取需要 `node`（Homebrew 安装的 `/opt/homebrew/bin/node`）。删除 node 会让 iCloud
+读取失效，退回本机兜底文件。
 
 也可以用命令维护名单（写入 iCloud，失败时回退本机文件）：
 

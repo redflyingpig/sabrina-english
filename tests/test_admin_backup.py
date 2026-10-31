@@ -333,3 +333,47 @@ class AdminBackupTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AllowlistFileTest(unittest.TestCase):
+    """The note is Markdown in an Obsidian vault; parsing must tolerate the prose around it."""
+
+    def setUp(self):
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.path = Path(self.tempdir.name) / "allowlist.md"
+
+    def tearDown(self):
+        self.tempdir.cleanup()
+
+    def test_parses_list_items_bare_names_and_ignores_prose(self):
+        from sabrina_backend import allowlist
+
+        self.path.write_text(
+            "# 允许登录的名字\n\n"
+            "> 说明文字，不应被当成名字\n\n"
+            "- Sabrina\n"
+            "* Max Lee\n"
+            "  同学 A  \n"
+            "# 注释\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(["sabrina", "max lee", "同学 a"], allowlist.parse(self.path.read_text(encoding="utf-8")))
+
+    def test_add_and_remove_round_trip(self):
+        from sabrina_backend import allowlist
+
+        os.environ["SABRINA_ALLOWLIST"] = str(self.path)
+        allowlist.add("  New  Kid ")
+        allowlist.add("new kid")
+        self.assertEqual(["new kid"], allowlist.read_names())
+        self.assertTrue(allowlist.remove("NEW KID"))
+        self.assertFalse(allowlist.remove("NEW KID"))
+        self.assertEqual([], allowlist.read_names())
+
+    def test_node_fallback_reads_a_file(self):
+        from sabrina_backend import allowlist
+
+        if not (shutil.which("node") or any(os.path.exists(p) for p in allowlist.NODE_CANDIDATES)):
+            self.skipTest("node is not installed")
+        self.path.write_text("- Fallback Kid\n", encoding="utf-8")
+        self.assertEqual(["fallback kid"], allowlist.parse(allowlist._read_via_node(self.path)))

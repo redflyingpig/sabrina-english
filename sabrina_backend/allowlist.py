@@ -15,6 +15,8 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Iterable, List
@@ -79,6 +81,31 @@ def candidates() -> List[Path]:
     return [configured] if configured else [ICLOUD_PATH, LOCAL_PATH]
 
 
+NODE_CANDIDATES = ("/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node")
+
+
+def _read_via_node(path: Path) -> str:
+    """Read through an interpreter that already has Full Disk Access.
+
+    macOS denies iCloud Drive to this service's Python (TCC). Node is granted on this machine and
+    reading through it works, so it is used only as a last resort when the direct read is refused.
+    """
+    node = shutil.which("node")
+    if not node:
+        node = next((candidate for candidate in NODE_CANDIDATES if os.path.exists(candidate)), None)
+    if not node:
+        raise OSError("no node interpreter available for the iCloud fallback")
+    result = subprocess.run(
+        [node, "-e", "process.stdout.write(require('fs').readFileSync(process.argv[1], 'utf8'))", str(path)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    if result.returncode != 0:
+        raise OSError(result.stderr.strip() or "node read failed")
+    return result.stdout
+
+
 def read_names(target: Path = None) -> List[str]:
     """Read the first existing note; fall back to the local vault when iCloud is unreadable."""
     paths = [target] if target else candidates()
@@ -89,10 +116,17 @@ def read_names(target: Path = None) -> List[str]:
             return parse(candidate.read_text(encoding="utf-8"))
         except OSError as error:
             # iCloud Drive is TCC-protected: a launchd process gets "Operation not permitted" unless
-            # the interpreter has Full Disk Access. Log it and try the local fallback.
+            # the interpreter has Full Disk Access. Try the granted node interpreter, then the local
+            # fallback.
             logging.getLogger("sabrina.allowlist").warning(
-                "cannot read invite list %s: %s", candidate, error
+                "cannot read invite list %s directly (%s); trying node", candidate, error
             )
+            try:
+                return parse(_read_via_node(candidate))
+            except (OSError, subprocess.SubprocessError) as helper_error:
+                logging.getLogger("sabrina.allowlist").warning(
+                    "cannot read invite list %s via node either: %s", candidate, helper_error
+                )
     return []
 
 

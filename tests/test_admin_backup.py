@@ -20,6 +20,7 @@ from sabrina_backend.admin import (
     rename_profile,
     reset_pin,
 )
+from sabrina_backend import allowlist
 from sabrina_backend.backup import backup_database
 from sabrina_backend.store import Store
 
@@ -28,6 +29,7 @@ class AdminBackupTest(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory()
         self.data_dir = Path(self.tempdir.name) / "data"
+        os.environ["SABRINA_ALLOWLIST"] = str(Path(self.tempdir.name) / "allowlist.md")
 
     def tearDown(self):
         self.tempdir.cleanup()
@@ -292,7 +294,7 @@ class AdminBackupTest(unittest.TestCase):
         rename_profile(self.data_dir, "Sabrina", "Sabrina L")
 
         self.assertIn("new kid", output.getvalue())
-        self.assertEqual(["new kid"], self.store().allowlist_list())
+        self.assertEqual(["new kid"], allowlist.read_names())
         self.assertEqual(
             ["Sabrina L"], [p["display_name"] for p in self.store().list_profiles()]
         )
@@ -302,7 +304,7 @@ class AdminBackupTest(unittest.TestCase):
         store.create_profile("Sabrina", "123456")
         allow_name(self.data_dir, "Guest")
         disallow_name(self.data_dir, "Guest")
-        self.assertEqual([], self.store().allowlist_list())
+        self.assertEqual([], allowlist.read_names())
         self.assertEqual(["Sabrina"], [p["display_name"] for p in self.store().list_profiles()])
 
     def test_rename_rejects_a_taken_name(self):

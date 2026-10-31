@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional, Sequence, TextIO
 
+from . import allowlist
 from .store import Store
 
 
@@ -72,25 +73,24 @@ def list_profiles(data_dir: Path, output: TextIO = sys.stdout) -> None:
 
 
 def allow_name(data_dir: Path, username: str, output: TextIO = sys.stdout) -> None:
-    store = _store(data_dir)
-    normalized = store.allowlist_add(username)
-    output.write(f"已加入白名单：{normalized}\n")
+    normalized = allowlist.add(username)
+    output.write(f"已加入白名单：{normalized}\n写入 {allowlist.path()}\n")
 
 
 def disallow_name(data_dir: Path, username: str, output: TextIO = sys.stdout) -> None:
-    store = _store(data_dir)
-    removed = store.allowlist_remove(username)
-    output.write(("已移出白名单：" if removed else "白名单里没有：") + store.normalize_username(username) + "\n")
+    removed = allowlist.remove(username)
+    verb = "已移出白名单" if removed else "白名单里没有"
+    output.write(f"{verb}：{allowlist.normalize_name(username)}\n名单文件 {allowlist.path()}\n")
 
 
 def list_allowlist(data_dir: Path, output: TextIO = sys.stdout) -> None:
-    store = _store(data_dir)
-    names = store.allowlist_list()
+    names = allowlist.read_names()
+    output.write(f"名单文件：{allowlist.path()}\n")
     if not names:
-        output.write("(白名单为空，只有已有档案的用户能登录)\n")
+        output.write("(空：只有已经注册过的名字能登录)\n")
         return
     for name in names:
-        output.write(name + "\n")
+        output.write(f"- {name}\n")
 
 
 def rename_profile(data_dir: Path, username: str, new_name: str, output: TextIO = sys.stdout) -> None:

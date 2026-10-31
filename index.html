@@ -744,6 +744,20 @@
       box-shadow: 0 0 0 3px rgba(217, 144, 47, 0.14);
     }
 
+    /* Stronger than `.profile-form p`, which otherwise repaints this text in the muted colour. */
+    .profile-form .profile-error {
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      color: #a3231b;
+      background: rgba(163, 35, 27, 0.10);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .profile-error[hidden] {
+      display: none;
+    }
+
     .profile-note {
       padding: 12px 14px;
       border-radius: var(--radius);
@@ -988,6 +1002,7 @@
                maxlength="32" placeholder="例如 Sabrina">
       </div>
       <div class="profile-note" id="profileNote">只有老师邀请的名字才能建立新档案；已经注册过的名字直接进入。</div>
+      <p class="profile-error" id="profileError" hidden></p>
       <button class="primary-btn" type="submit" id="profileSubmit">进入学习空间</button>
     </form>
   </dialog>
@@ -1079,6 +1094,7 @@
     const profileDialog = document.getElementById("profileDialog");
     const profileForm = document.getElementById("profileForm");
     const profileNameInput = document.getElementById("profileNameInput");
+    const profileError = document.getElementById("profileError");
 
 
 
@@ -1131,6 +1147,9 @@
     copyProfileLink.addEventListener("click", copyUserLink);
     changeProfile.addEventListener("click", logoutProfile);
     profileForm.addEventListener("submit", loginProfile);
+    profileNameInput.addEventListener("input", () => {
+      profileError.hidden = true;
+    });
     window.addEventListener("online", () => {
       if (sessionToken && activeProfile) loadProfileFromServer();
     });
@@ -1253,12 +1272,15 @@
       event.preventDefault();
       const username = profileNameInput.value.replace(/\s+/g, " ").trim();
       if (!username) {
-        showToast("请输入学习用户名。");
+        profileError.textContent = "请输入学习用户名。";
+        profileError.hidden = false;
         profileNameInput.focus();
         return;
       }
       const submitButton = profileForm.querySelector('button[type="submit"]');
       submitButton.disabled = true;
+      profileError.hidden = true;
+      profileError.textContent = "";
       try {
         const result = await apiRequest("/api/auth/login", {
           method: "POST",
@@ -1269,11 +1291,13 @@
         if (result.created) showToast(`已建立学习档案：${activeProfile.name}`);
       } catch (error) {
         const code = error.payload?.error;
-        showToast(code === "not_allowed"
+        // Shown inside the dialog: a toast would sit behind the modal's top layer.
+        profileError.textContent = code === "not_allowed"
           ? "这个名字还没有被邀请。请让老师把名字加入名单后再试。"
           : code === "invalid_username"
             ? "用户名不可用，请输入 1–32 个字符。"
-            : "连接失败，请稍后再试。");
+            : "连接失败，请稍后再试。";
+        profileError.hidden = false;
         profileNameInput.focus();
       } finally {
         submitButton.disabled = false;
@@ -1888,6 +1912,8 @@
     }
 
                         function showLoginDialog() {
+      profileError.hidden = true;
+      profileError.textContent = "";
       if (activeProfile) profileNameInput.value = activeProfile.name;
       if (!profileDialog.open) {
         if (typeof profileDialog.showModal === "function") {

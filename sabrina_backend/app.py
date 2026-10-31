@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 from urllib.parse import unquote, urlsplit
 
+from .allowlist import read_names as read_allowlist
 from .store import Store, VersionConflict
 
 
@@ -299,7 +300,7 @@ class SabrinaHandler(BaseHTTPRequestHandler):
         # Existing names always sign in; a new name only becomes a profile when it is on the
         # invite list, so a typo cannot quietly create an empty profile.
         try:
-            profile = self.server.store.login_or_create(username)
+            profile = self.server.store.login_or_create(username, read_allowlist())
         except PermissionError:
             self._error(403, "not_allowed", "This username is not on the invite list")
             return

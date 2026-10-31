@@ -75,6 +75,17 @@ class FrontendContractTest(unittest.TestCase):
         # field stayed visible next to the profile buttons and the dialog showed two flows at once.
         self.assertRegex(self.html, r"\[hidden\]\s*\{[^}]*display:\s*none\s*!important")
 
+    def test_login_errors_render_inside_the_dialog(self):
+        # A toast sits behind a modal's top layer; login failures must be visible in the dialog.
+        self.assertIn('id="profileError"', self.html)
+        body = self.function_body("loginProfile")
+        self.assertIn("profileError.textContent", body)
+        self.assertIn("profileError.hidden = false", body)
+        catch_block = body.split("} catch (error) {", 1)[1].split("} finally", 1)[0]
+        self.assertNotIn("showToast", catch_block)
+        self.assertRegex(self.html, r"\.profile-form \.profile-error\s*\{")
+        self.assertIn('code === "not_allowed"', body)
+
     def test_login_dialog_is_viewport_bounded(self):
         dialog_rule = re.search(r"\.profile-dialog\s*\{(.*?)\}", self.html, re.DOTALL)
         self.assertIsNotNone(dialog_rule)

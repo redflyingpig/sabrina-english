@@ -1,10 +1,12 @@
 import http.client
 import json
+import os
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 
+from sabrina_backend import allowlist
 from sabrina_backend.app import MAX_BODY_BYTES, create_server
 
 
@@ -30,6 +32,9 @@ class AppTest(unittest.TestCase):
         (self.root_dir / "assets" / "content-library.js").write_text(
             "window.SabrinaContent = {};", encoding="utf-8"
         )
+        # The invite list is a Markdown note; point it at this test's temporary directory.
+        self.allowlist_path = self.data_dir / "allowlist.md"
+        os.environ["SABRINA_ALLOWLIST"] = str(self.allowlist_path)
         self.server = create_server("127.0.0.1", 0, self.root_dir, self.data_dir)
         self.server.store.create_profile("Owner", "123456")
         self.server.store.create_profile("Sabrina", "234567")
@@ -493,7 +498,7 @@ class AppTest(unittest.TestCase):
         self.assertEqual("forbidden_origin", body["error"])
 
     def test_invited_username_creates_a_study_profile(self):
-        self.server.store.allowlist_add("Chloe")
+        allowlist.add("Chloe")
         status, _, body = self.request("POST", "/api/auth/login", {"username": "Chloe"})
         self.assertEqual(200, status)
         self.assertTrue(body["created"])
@@ -511,9 +516,9 @@ class AppTest(unittest.TestCase):
         self.assertIsNone(self.server.store.find_profile("Stranger"))
 
     def test_removed_invite_does_not_block_an_existing_profile(self):
-        self.server.store.allowlist_add("Chloe")
+        allowlist.add("Chloe")
         self.request("POST", "/api/auth/login", {"username": "Chloe"})
-        self.server.store.allowlist_remove("Chloe")
+        allowlist.remove("Chloe")
         status, _, body = self.request("POST", "/api/auth/login", {"username": "chloe"})
         self.assertEqual(200, status)
         self.assertFalse(body["created"])
@@ -537,7 +542,7 @@ class AppTest(unittest.TestCase):
         self.assertEqual(saved["state"], profile["state"])
 
     def test_duplicate_username_variants_do_not_create_extra_profiles(self):
-        self.server.store.allowlist_add("Jordan")
+        allowlist.add("Jordan")
         status, _, created = self.request("POST", "/api/auth/login", {"username": "Jordan"})
         self.assertEqual(200, status)
         self.assertTrue(created["created"])

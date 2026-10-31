@@ -199,7 +199,12 @@ class SchemaMigrationTest(unittest.TestCase):
         self.assertEqual("Owner", owner["display_name"])
         self.assertIsNone(owner["email"])
 
-        # v3 adds the invite allowlist; an upgraded database gets an empty one.
-        self.assertEqual([], self.store.allowlist_list())
-        self.store.allowlist_add("New Kid")
-        self.assertEqual(["new kid"], self.store.allowlist_list())
+        # v3 provisions the (now dormant) allowlist table; the live list is a Markdown note.
+        with sqlite3.connect(self.db_path) as connection:
+            tables = {
+                row[0]
+                for row in connection.execute("select name from sqlite_master where type = 'table'")
+            }
+            stored = connection.execute("select count(*) from allowlist").fetchone()[0]
+        self.assertIn("allowlist", tables)
+        self.assertEqual(0, stored)

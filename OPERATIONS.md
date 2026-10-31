@@ -35,17 +35,34 @@ install -m 600 course.json "$HOME/Library/Application Support/SabrinaEnglish/can
 
 每个名字对应一个学习档案。删除档案不会连带删除邀请名单里的名字。
 
-**管理邀请名单**：
+**邀请名单是一个 Obsidian 笔记**（可以直接在手机或电脑的 Obsidian 里改）：
+
+```
+~/Sabrina Config/allowlist.md
+```
+
+Vault 名 `Sabrina Config`（直接放在家目录），里面只有这一个配置文件。**不要放到 iCloud Drive 或「文档」目录**：系统权限会拒绝后台服务读取（`Operation not permitted`），名单会变成空的。想同步到手机的话，可以在 Obsidian 里用同步插件或手动拷贝，而不是挪动这个文件夹。每行一个名字，`- 名字` 或裸名字都可以；`#` 开头是标题、`>` 开头是引用，都会被忽略。服务在**每次登录时重新读取**这个文件，所以改完立即生效，不需要重启。
+
+```markdown
+# 允许登录的名字
+
+> 说明文字……
+
+- Sabrina
+- 同学的名字
+```
+
+也可以用命令维护同一份文件：
 
 ```sh
 export SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish"
-python3 -m sabrina_backend.admin allow <名字>          # 允许该名字建立档案
-python3 -m sabrina_backend.admin unallow <名字>        # 从名单移除（已建的档案不受影响）
-python3 -m sabrina_backend.admin list-allowlist        # 查看名单
+python3 -m sabrina_backend.admin allow <名字>          # 写入名单
+python3 -m sabrina_backend.admin unallow <名字>        # 移出名单（已建的档案不受影响）
+python3 -m sabrina_backend.admin list-allowlist        # 查看当前名单与文件路径
 python3 -m sabrina_backend.admin list-profiles         # 查看已有档案
 ```
 
-邀请名单存在数据库 `allowlist` 表（schema v3），随备份一起保存。
+文件名可以用环境变量 `SABRINA_ALLOWLIST` 指到别处；默认就是上面那个 vault。文件被 iCloud 收回或暂时读不到时，视为空名单——已有档案的人照样能登录，只是新名字会被拒绝。
 
 **其他档案操作**：
 

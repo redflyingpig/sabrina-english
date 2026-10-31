@@ -179,42 +179,10 @@ class Store:
             raise ValueError("Profile already exists") from error
 
     # ---- invite allowlist ---------------------------------------------------------------------
-    # The site is shared with classmates, so a brand-new name only becomes a study profile when it is
-    # on the invite list. Names that already have a profile keep working without being listed.
+    # The invite list itself lives in a Markdown note (see sabrina_backend/allowlist.py); the caller
+    # passes the currently allowed names so a note edit applies without touching the database.
 
-    def is_allowlisted(self, display_name: str) -> bool:
-        normalized = self.normalize_username(self.normalize_display_name(display_name))
-        with self._connect() as connection:
-            row = connection.execute(
-                "select 1 from allowlist where username_normalized = ?", (normalized,)
-            ).fetchone()
-        return row is not None
-
-    def allowlist_add(self, display_name: str) -> str:
-        normalized = self.normalize_username(self.normalize_display_name(display_name))
-        with self._connect() as connection:
-            connection.execute(
-                "insert or ignore into allowlist (username_normalized, added_at) values (?, ?)",
-                (normalized, self._utc_now().isoformat()),
-            )
-        return normalized
-
-    def allowlist_remove(self, display_name: str) -> bool:
-        normalized = self.normalize_username(self.normalize_display_name(display_name))
-        with self._connect() as connection:
-            cursor = connection.execute(
-                "delete from allowlist where username_normalized = ?", (normalized,)
-            )
-        return cursor.rowcount > 0
-
-    def allowlist_list(self) -> List[str]:
-        with self._connect() as connection:
-            rows = connection.execute(
-                "select username_normalized from allowlist order by username_normalized"
-            ).fetchall()
-        return [row["username_normalized"] for row in rows]
-
-    def login_or_create(self, display_name: str) -> Dict[str, Any]:
+    def login_or_create(self, display_name: str, allowed_names=()) -> Dict[str, Any]:
         """Sign in an existing profile, or create one when the name is on the invite list.
 
         Raises PermissionError when the name is new and not listed, so the route can answer 403
@@ -224,7 +192,7 @@ class Store:
         existing = self.find_profile(normalized_name)
         if existing is not None:
             return {"id": existing["id"], "display_name": existing["display_name"], "created": False}
-        if not self.is_allowlisted(normalized_name):
+        if self.normalize_username(normalized_name) not in set(allowed_names):
             raise PermissionError("This username is not on the invite list")
         try:
             profile_id = self.create_profile(normalized_name, secrets.token_urlsafe(32))
@@ -235,7 +203,6 @@ class Store:
                 raise
             return {"id": existing["id"], "display_name": existing["display_name"], "created": False}
         return {"id": profile_id, "display_name": normalized_name, "created": True}
-
 
     def delete_profile(self, display_name: str) -> Dict[str, Any]:
         """Delete a profile and its sessions. Study data is not recoverable without a backup."""

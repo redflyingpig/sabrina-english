@@ -38,7 +38,7 @@ class StoreTest(unittest.TestCase):
         self.assertTrue({"profiles", "sessions", "schema_version"} <= tables)
         self.assertEqual("wal", journal_mode)
         self.assertTrue(session_foreign_keys)
-        self.assertEqual(2, schema_version)
+        self.assertEqual(3, schema_version)
 
     def test_profile_names_are_case_and_space_insensitive(self):
         profile_id = self.store.create_profile("  Sabrina   Lee  ", "123456")
@@ -194,14 +194,12 @@ class SchemaMigrationTest(unittest.TestCase):
             owner = connection.execute(
                 "select display_name, email from profiles where username_normalized = 'owner'"
             ).fetchone()
-        self.assertEqual(2, version)
+        self.assertEqual(3, version)
         self.assertIn("email", columns)
         self.assertEqual("Owner", owner["display_name"])
         self.assertIsNone(owner["email"])
 
-        # The upgraded row can be bound to the verified mailbox that Access will present.
-        self.store.bind_profile_email("Owner", "Alex@Example.com")
-        self.assertEqual(
-            [{"id": 1, "display_name": "Owner"}],
-            self.store.profiles_for_email("alex@example.com"),
-        )
+        # v3 adds the invite allowlist; an upgraded database gets an empty one.
+        self.assertEqual([], self.store.allowlist_list())
+        self.store.allowlist_add("New Kid")
+        self.assertEqual(["new kid"], self.store.allowlist_list())

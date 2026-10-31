@@ -744,52 +744,6 @@
       box-shadow: 0 0 0 3px rgba(217, 144, 47, 0.14);
     }
 
-    .profile-choices {
-      display: grid;
-      gap: 10px;
-    }
-
-    .profile-choices[hidden] {
-      display: none;
-    }
-
-    .profile-choice {
-      width: 100%;
-      min-height: 48px;
-      padding: 0 14px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      color: var(--text);
-      background: rgba(255, 255, 255, 0.74);
-      font: inherit;
-      font-weight: 700;
-      text-align: left;
-      cursor: pointer;
-    }
-
-    .profile-choice:hover,
-    .profile-choice:focus-visible {
-      border-color: var(--gold);
-      box-shadow: 0 0 0 3px rgba(217, 144, 47, 0.14);
-    }
-
-    .link-btn {
-      width: 100%;
-      min-height: 40px;
-      border: 0;
-      border-radius: var(--radius);
-      color: var(--gold);
-      background: transparent;
-      font: inherit;
-      font-weight: 700;
-      cursor: pointer;
-      text-decoration: underline;
-    }
-
-    .link-btn[hidden] {
-      display: none;
-    }
-
     .profile-note {
       padding: 12px 14px;
       border-radius: var(--radius);
@@ -900,7 +854,6 @@
           <div class="sync-state" id="syncState">保存在此设备</div>
         </div>
         <div class="tool-actions">
-          <button class="secondary-btn" id="newProfile" type="button">新建档案</button>
           <button class="secondary-btn" id="copyProfileLink" type="button">复制用户链接</button>
           <button class="secondary-btn" id="changeProfile" type="button">切换用户</button>
         </div>
@@ -1028,16 +981,14 @@
         <p class="eyebrow">Your study profile</p>
         <h2>进入学习档案</h2>
       </div>
-      <p id="profileIntro">输入你的名字即可开始。换手机或电脑时输入同一个名字，就能继续原来的学习记录。</p>
-      <div class="profile-choices" id="profileChoices" hidden></div>
+      <p id="profileIntro">输入你的名字即可开始。同一台设备会记住你，下次直接进入。</p>
       <div class="profile-field" id="profileNameField">
         <label for="profileNameInput" id="profileNameLabel">学习用户名</label>
         <input id="profileNameInput" name="profileName" type="text" autocomplete="nickname"
                maxlength="32" placeholder="例如 Sabrina">
       </div>
-      <div class="profile-note" id="profileNote">这个名字就是你的学习档案 ID：第一次使用会自动建立，之后输入同一个名字即可继续。请记住自己的写法，也不要和同学用同一个名字。</div>
+      <div class="profile-note" id="profileNote">只有老师邀请的名字才能建立新档案；已经注册过的名字直接进入。</div>
       <button class="primary-btn" type="submit" id="profileSubmit">进入学习空间</button>
-      <button class="link-btn" type="button" id="switchAccount" hidden>换一个邮箱账号</button>
     </form>
   </dialog>
 
@@ -1125,26 +1076,11 @@
     const syncState = document.getElementById("syncState");
     const copyProfileLink = document.getElementById("copyProfileLink");
     const changeProfile = document.getElementById("changeProfile");
-    const newProfile = document.getElementById("newProfile");
     const profileDialog = document.getElementById("profileDialog");
     const profileForm = document.getElementById("profileForm");
     const profileNameInput = document.getElementById("profileNameInput");
-    const profileChoices = document.getElementById("profileChoices");
-    const profileNameField = document.getElementById("profileNameField");
-    const profileIntro = document.getElementById("profileIntro");
-    const profileNote = document.getElementById("profileNote");
-    const profileSubmit = document.getElementById("profileSubmit");
-    const switchAccount = document.getElementById("switchAccount");
-    const profileNameLabel = document.getElementById("profileNameLabel");
 
-    // Cloudflare Access verifies the mailbox at the edge; the address is the account key and one
-    // account may own several study profiles (shared family device). Without an identity the page
-    // falls back to the legacy username sign-in.
-    const PROFILE_ID_KEY = "sabrinaEnglish:profileId";
-    let identityEmail = null;
-    let identityProfiles = [];
-    // True while an already-signed-in account chooses to add another profile instead of picking one.
-    let creatingProfile = false;
+
 
     dateText.textContent = new Intl.DateTimeFormat("en-US", {
       weekday: "short",
@@ -1195,15 +1131,6 @@
     copyProfileLink.addEventListener("click", copyUserLink);
     changeProfile.addEventListener("click", logoutProfile);
     profileForm.addEventListener("submit", loginProfile);
-    newProfile.addEventListener("click", openCreateProfileDialog);
-    switchAccount.addEventListener("click", () => {
-      // Cloudflare Access owns the session; leaving it lets a different mailbox verify.
-      window.location.href = "/cdn-cgi/access/logout";
-    });
-    profileDialog.addEventListener("cancel", (event) => {
-      // Choosing a profile is required; ESC must not leave an empty screen.
-      event.preventDefault();
-    });
     window.addEventListener("online", () => {
       if (sessionToken && activeProfile) loadProfileFromServer();
     });
@@ -1213,32 +1140,9 @@
       }
     });
 
-            function openCreateProfileDialog() {
-      creatingProfile = true;
-      renderProfileDialog();
-      if (!profileDialog.open) {
-        if (typeof profileDialog.showModal === "function") {
-          profileDialog.showModal();
-        } else {
-          profileDialog.setAttribute("open", "");
-        }
-      }
-      profileNameInput.focus();
-    }
-
-    async function initializeApp() {
-      // A returning visitor should land in their profile, not be asked to choose. The mailbox is
-      // already proven, so a remembered profile (or the only one) is opened directly; a picker is
-      // only shown when the account really has a choice to make.
-      await refreshIdentity();
-      const remembered = localStorage.getItem(PROFILE_ID_KEY);
-      const owned = identityEmail
-        ? identityProfiles.find((profile) => String(profile.id) === String(remembered))
-        : null;
-      const only = identityEmail && identityProfiles.length === 1 ? identityProfiles[0] : null;
-      const resumeOwned = !identityEmail || Boolean(owned);
-
-      if (activeProfile && sessionToken && resumeOwned) {
+                    async function initializeApp() {
+      // This device remembers its profile, so returning visits go straight to the lessons.
+      if (activeProfile && sessionToken) {
         profileBar.hidden = false;
         profileName.textContent = activeProfile.name;
         migrateOwnerLocalData();
@@ -1248,15 +1152,6 @@
         refreshWordbookForSession();
         return;
       }
-
-      const target = owned || only;
-      if (target) {
-        await loadContentLibrary();
-        renderAll();
-        await signInWithProfile(target.id);
-        return;
-      }
-
       await loadContentLibrary();
       renderAll();
       showLoginDialog();
@@ -1336,13 +1231,10 @@
       renderStreak();
     }
 
-        async function applyLogin(result) {
+            async function applyLogin(result) {
       resetSessionSync();
       sessionToken = result.token;
       localStorage.setItem(SESSION_KEY, sessionToken);
-      if (result.profile && result.profile.id !== undefined) {
-        localStorage.setItem(PROFILE_ID_KEY, String(result.profile.id));
-      }
       setActiveProfile(result.profile.display_name);
       profileDialog.close();
       profileBar.hidden = false;
@@ -1357,27 +1249,8 @@
       refreshWordbookForSession();
     }
 
-    async function signInWithProfile(profileId) {
-      profileSubmit.disabled = true;
-      try {
-        const result = await apiRequest("/api/auth/login", {
-          method: "POST",
-          body: { profile_id: Number(profileId) },
-          authenticated: false
-        });
-        await applyLogin(result);
-      } catch (error) {
-        showToast(error.status === 403
-          ? "这个档案属于另一个邮箱账号。"
-          : "无法进入该档案，请刷新后重试。");
-      } finally {
-        profileSubmit.disabled = false;
-      }
-    }
-
-    async function loginProfile(event) {
+            async function loginProfile(event) {
       event.preventDefault();
-      if (identityEmail && identityProfiles.length && !creatingProfile) return;
       const username = profileNameInput.value.replace(/\s+/g, " ").trim();
       if (!username) {
         showToast("请输入学习用户名。");
@@ -1387,33 +1260,17 @@
       const submitButton = profileForm.querySelector('button[type="submit"]');
       submitButton.disabled = true;
       try {
-        let result;
-        if (identityEmail) {
-          // Verified mailbox: create the first profile under it, then open it.
-          const created = await apiRequest("/api/profiles", {
-            method: "POST",
-            body: { display_name: username },
-            authenticated: false
-          });
-          identityProfiles = identityProfiles.concat([created.profile]);
-          result = await apiRequest("/api/auth/login", {
-            method: "POST",
-            body: { profile_id: created.profile.id },
-            authenticated: false
-          });
-        } else {
-          result = await apiRequest("/api/auth/login", {
-            method: "POST",
-            body: { username },
-            authenticated: false
-          });
-        }
+        const result = await apiRequest("/api/auth/login", {
+          method: "POST",
+          body: { username },
+          authenticated: false
+        });
         await applyLogin(result);
         if (result.created) showToast(`已建立学习档案：${activeProfile.name}`);
       } catch (error) {
         const code = error.payload?.error;
-        showToast(code === "name_taken"
-          ? "这个名字属于另一个邮箱账号：如果这是你以前的档案，请点「换一个邮箱账号」用当初的邮箱验证；否则换一个新名字。"
+        showToast(code === "not_allowed"
+          ? "这个名字还没有被邀请。请让老师把名字加入名单后再试。"
           : code === "invalid_username"
             ? "用户名不可用，请输入 1–32 个字符。"
             : "连接失败，请稍后再试。");
@@ -2030,70 +1887,8 @@
       CANTONESE_KEY = profileStorageKey("cantonese");
     }
 
-    async function refreshIdentity() {
-      try {
-        const response = await fetch("/api/whoami", { headers: { Accept: "application/json" } });
-        if (!response.ok) {
-          identityEmail = null;
-          identityProfiles = [];
-          return null;
-        }
-        const body = await response.json();
-        identityEmail = typeof body.email === "string" ? body.email : null;
-        identityProfiles = Array.isArray(body.profiles) ? body.profiles : [];
-        return body;
-      } catch (error) {
-        console.warn("Identity lookup failed; falling back to username sign-in", error);
-        identityEmail = null;
-        identityProfiles = [];
-        return null;
-      }
-    }
-
-        function renderProfileDialog() {
-      const hasProfiles = Boolean(identityEmail && identityProfiles.length);
-      const choosing = hasProfiles && !creatingProfile;
-      profileChoices.hidden = !choosing;
-      profileChoices.replaceChildren();
-      profileNameField.hidden = choosing;
-      profileSubmit.hidden = choosing;
-      switchAccount.hidden = !identityEmail;
-
-      if (choosing) {
-        profileIntro.textContent = `已通过邮箱验证：${identityEmail}。选择要进入的档案：`;
-        profileNote.textContent = "换设备后用同一个邮箱验证，就能回到这些档案。要换人使用，点最下面的「换一个邮箱账号」。";
-        for (const profile of identityProfiles) {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "profile-choice";
-          button.dataset.profileId = String(profile.id);
-          button.textContent = profile.display_name;
-          button.addEventListener("click", () => signInWithProfile(profile.id));
-          profileChoices.appendChild(button);
-        }
-        return;
-      }
-
-      if (identityEmail) {
-        profileIntro.textContent = hasProfiles
-          ? `已通过邮箱验证：${identityEmail}。给新档案起个名字：`
-          : `已通过邮箱验证：${identityEmail}。为新档案起个名字：`;
-        profileNote.textContent = "名字只是显示用，建立后不需要再输入；以后打开网站会直接用邮箱认出你。";
-        profileNameLabel.textContent = "档案名字";
-        profileSubmit.textContent = "建立并进入";
-        return;
-      }
-
-      profileIntro.textContent = "输入你的名字即可开始。换手机或电脑时输入同一个名字，就能继续原来的学习记录。";
-      profileNote.textContent = "这个名字就是你的学习档案 ID：第一次使用会自动建立，之后输入同一个名字即可继续。";
-      profileNameLabel.textContent = "学习用户名";
-      profileSubmit.textContent = "进入学习空间";
-    }
-
-        function showLoginDialog() {
-      creatingProfile = false;
-      renderProfileDialog();
-      if (!profileNameField.hidden && activeProfile) profileNameInput.value = activeProfile.name;
+                        function showLoginDialog() {
+      if (activeProfile) profileNameInput.value = activeProfile.name;
       if (!profileDialog.open) {
         if (typeof profileDialog.showModal === "function") {
           profileDialog.showModal();
@@ -2101,15 +1896,10 @@
           profileDialog.setAttribute("open", "");
         }
       }
-      if (!profileNameField.hidden) profileNameInput.focus();
+      profileNameInput.focus();
     }
 
-    function profileIdFor(name) {
-      const match = identityProfiles.find((profile) => profile.display_name === name);
-      return match ? String(match.id) : null;
-    }
-
-    function migrateOwnerLocalData() {
+        function migrateOwnerLocalData() {
       // Owner was renamed to Alex; carry this device's cached counters to the new key.
       if (!activeProfile || activeProfile.username !== "alex") return;
       for (const type of ["history", "favorites", "streak", "updatedAt", "wordbook", "cantonese"]) {

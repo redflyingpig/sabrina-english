@@ -492,7 +492,8 @@ class AppTest(unittest.TestCase):
         self.assertEqual(403, status)
         self.assertEqual("forbidden_origin", body["error"])
 
-    def test_new_username_creates_a_study_profile(self):
+    def test_invited_username_creates_a_study_profile(self):
+        self.server.store.allowlist_add("Chloe")
         status, _, body = self.request("POST", "/api/auth/login", {"username": "Chloe"})
         self.assertEqual(200, status)
         self.assertTrue(body["created"])
@@ -501,6 +502,22 @@ class AppTest(unittest.TestCase):
         self.assertEqual(200, status)
         self.assertEqual("Chloe", profile["display_name"])
 
+    def test_username_outside_the_invite_list_is_rejected(self):
+        count = len(self.server.store.list_profiles())
+        status, _, body = self.request("POST", "/api/auth/login", {"username": "Stranger"})
+        self.assertEqual(403, status)
+        self.assertEqual("not_allowed", body["error"])
+        self.assertEqual(count, len(self.server.store.list_profiles()))
+        self.assertIsNone(self.server.store.find_profile("Stranger"))
+
+    def test_removed_invite_does_not_block_an_existing_profile(self):
+        self.server.store.allowlist_add("Chloe")
+        self.request("POST", "/api/auth/login", {"username": "Chloe"})
+        self.server.store.allowlist_remove("Chloe")
+        status, _, body = self.request("POST", "/api/auth/login", {"username": "chloe"})
+        self.assertEqual(200, status)
+        self.assertFalse(body["created"])
+        self.assertEqual("Chloe", body["profile"]["display_name"])
     def test_existing_username_signs_into_the_same_profile(self):
         status, _, body = self.request("POST", "/api/auth/login", {"username": "Sabrina"})
         self.assertEqual(200, status)
@@ -520,6 +537,7 @@ class AppTest(unittest.TestCase):
         self.assertEqual(saved["state"], profile["state"])
 
     def test_duplicate_username_variants_do_not_create_extra_profiles(self):
+        self.server.store.allowlist_add("Jordan")
         status, _, created = self.request("POST", "/api/auth/login", {"username": "Jordan"})
         self.assertEqual(200, status)
         self.assertTrue(created["created"])
@@ -538,59 +556,6 @@ class AppTest(unittest.TestCase):
             self.assertEqual(400, status, repr(bad)[:20])
             self.assertEqual("invalid_username", body["error"], repr(bad)[:20])
         self.assertEqual(count, len(self.server.store.list_profiles()))
-
-    def test_access_identity_creates_and_lists_profiles(self):
-        headers = {"Cf-Access-Authenticated-User-Email": "Alex@Example.com"}
-        status, _, body = self.request("GET", "/api/whoami", headers=headers)
-        self.assertEqual(200, status)
-        self.assertEqual("alex@example.com", body["email"])
-        self.assertEqual([], body["profiles"])
-
-        status, _, created = self.request(
-            "POST", "/api/profiles", {"display_name": "Alex"}, headers=headers
-        )
-        self.assertEqual(201, status)
-        profile_id = created["profile"]["id"]
-
-        status, _, body = self.request("GET", "/api/whoami", headers=headers)
-        self.assertEqual(200, status)
-        self.assertEqual([{"id": profile_id, "display_name": "Alex"}], body["profiles"])
-
-        status, _, body = self.request(
-            "POST", "/api/auth/login", {"profile_id": profile_id}, headers=headers
-        )
-        self.assertEqual(200, status)
-        self.assertEqual("Alex", body["profile"]["display_name"])
-        status, _, state = self.request("GET", "/api/profile", token=body["token"])
-        self.assertEqual(200, status)
-        self.assertEqual("Alex", state["display_name"])
-
-    def test_duplicate_display_name_is_rejected_across_accounts(self):
-        alex = {"Cf-Access-Authenticated-User-Email": "alex@example.com"}
-        bob = {"Cf-Access-Authenticated-User-Email": "bob@example.com"}
-        status, _, _ = self.request("POST", "/api/profiles", {"display_name": "Kim"}, headers=alex)
-        self.assertEqual(201, status)
-        status, _, body = self.request("POST", "/api/profiles", {"display_name": "  kim "}, headers=bob)
-        self.assertEqual(409, status)
-        self.assertEqual("name_taken", body["error"])
-
-    def test_profile_cannot_be_opened_by_another_account(self):
-        alex = {"Cf-Access-Authenticated-User-Email": "alex@example.com"}
-        bob = {"Cf-Access-Authenticated-User-Email": "bob@example.com"}
-        _, _, created = self.request("POST", "/api/profiles", {"display_name": "Sam"}, headers=alex)
-        profile_id = created["profile"]["id"]
-        status, _, body = self.request(
-            "POST", "/api/auth/login", {"profile_id": profile_id}, headers=bob
-        )
-        self.assertEqual(403, status)
-        self.assertEqual("forbidden", body["error"])
-
-    def test_whoami_requires_a_verified_identity(self):
-        status, _, body = self.request("GET", "/api/whoami")
-        self.assertEqual(401, status)
-        self.assertEqual("no_identity", body["error"])
-        status, _, _ = self.request("POST", "/api/profiles", {"display_name": "Nope"})
-        self.assertEqual(401, status)
 
     def test_api_security_headers_disable_caching(self):
         status, headers, _ = self.request("GET", "/api/health")

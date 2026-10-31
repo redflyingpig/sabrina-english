@@ -11,9 +11,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sabrina_backend.admin import (
-    bind_email,
+    allow_name,
     delete_profile,
+    disallow_name,
     init_profiles,
+    list_allowlist,
     list_profiles,
     rename_profile,
     reset_pin,
@@ -280,21 +282,28 @@ class AdminBackupTest(unittest.TestCase):
         self.assertEqual("live-after-backup", safety_state["history"][0]["title"])
 
 
-    def test_bind_email_and_rename_are_reusable_operations(self):
+    def test_allowlist_and_rename_are_reusable_operations(self):
         store = self.store()
-        store.create_profile("Owner", "123456")
-        store.create_profile("Sabrina", "234567")
+        store.create_profile("Sabrina", "123456")
 
         output = io.StringIO()
-        bind_email(self.data_dir, "Owner", "Alex.Yacao.Wang@Gmail.com", output)
-        rename_profile(self.data_dir, "Owner", "Alex", output)
+        allow_name(self.data_dir, "  New Kid ", output)
+        list_allowlist(self.data_dir, output)
+        rename_profile(self.data_dir, "Sabrina", "Sabrina L")
 
-        profiles = self.store().list_profiles()
+        self.assertIn("new kid", output.getvalue())
+        self.assertEqual(["new kid"], self.store().allowlist_list())
         self.assertEqual(
-            [("Alex", "alex.yacao.wang@gmail.com"), ("Sabrina", None)],
-            [(p["display_name"], p["email"]) for p in profiles],
+            ["Sabrina L"], [p["display_name"] for p in self.store().list_profiles()]
         )
-        self.assertIn("Alex", output.getvalue())
+
+    def test_unallow_removes_only_the_invite(self):
+        store = self.store()
+        store.create_profile("Sabrina", "123456")
+        allow_name(self.data_dir, "Guest")
+        disallow_name(self.data_dir, "Guest")
+        self.assertEqual([], self.store().allowlist_list())
+        self.assertEqual(["Sabrina"], [p["display_name"] for p in self.store().list_profiles()])
 
     def test_rename_rejects_a_taken_name(self):
         store = self.store()

@@ -71,10 +71,26 @@ def list_profiles(data_dir: Path, output: TextIO = sys.stdout) -> None:
         )
 
 
-def bind_email(data_dir: Path, username: str, email: str, output: TextIO = sys.stdout) -> None:
+def allow_name(data_dir: Path, username: str, output: TextIO = sys.stdout) -> None:
     store = _store(data_dir)
-    store.bind_profile_email(username, email)
-    output.write(f"已把 {username} 绑定到 {store.normalize_email(email)}\n")
+    normalized = store.allowlist_add(username)
+    output.write(f"已加入白名单：{normalized}\n")
+
+
+def disallow_name(data_dir: Path, username: str, output: TextIO = sys.stdout) -> None:
+    store = _store(data_dir)
+    removed = store.allowlist_remove(username)
+    output.write(("已移出白名单：" if removed else "白名单里没有：") + store.normalize_username(username) + "\n")
+
+
+def list_allowlist(data_dir: Path, output: TextIO = sys.stdout) -> None:
+    store = _store(data_dir)
+    names = store.allowlist_list()
+    if not names:
+        output.write("(白名单为空，只有已有档案的用户能登录)\n")
+        return
+    for name in names:
+        output.write(name + "\n")
 
 
 def rename_profile(data_dir: Path, username: str, new_name: str, output: TextIO = sys.stdout) -> None:
@@ -101,9 +117,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     reset_parser.add_argument("username")
     reset_parser.add_argument("--generate", action="store_true")
     subparsers.add_parser("list-profiles")
-    bind_parser = subparsers.add_parser("bind-email")
-    bind_parser.add_argument("username")
-    bind_parser.add_argument("email")
+    allow_parser = subparsers.add_parser("allow")
+    allow_parser.add_argument("username")
+    unallow_parser = subparsers.add_parser("unallow")
+    unallow_parser.add_argument("username")
+    subparsers.add_parser("list-allowlist")
     delete_parser = subparsers.add_parser("delete-profile")
     delete_parser.add_argument("username")
     rename_parser = subparsers.add_parser("rename")
@@ -117,8 +135,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.command == "list-profiles":
         list_profiles(args.data_dir)
         return 0
-    if args.command == "bind-email":
-        bind_email(args.data_dir, args.username, args.email)
+    if args.command == "allow":
+        allow_name(args.data_dir, args.username)
+        return 0
+    if args.command == "unallow":
+        disallow_name(args.data_dir, args.username)
+        return 0
+    if args.command == "list-allowlist":
+        list_allowlist(args.data_dir)
         return 0
     if args.command == "delete-profile":
         delete_profile(args.data_dir, args.username)

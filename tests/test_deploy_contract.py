@@ -110,7 +110,7 @@ class DeployContractTest(unittest.TestCase):
         for heading in (
             "安装与升级",
             "廣東話课程内容",
-            "账号与档案（Cloudflare Access + 邮箱验证码）",
+            "登录与邀请名单",
             "健康检查",
             "日志",
             "备份",

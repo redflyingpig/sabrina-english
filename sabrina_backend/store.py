@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 SESSION_DAYS = 90
 PBKDF2_ITERATIONS = 600_000
 EMPTY_STATE = {
@@ -102,6 +102,10 @@ class Store:
                 create index if not exists sessions_expires_at_idx
                     on sessions(expires_at);
 
+                create table if not exists allowlist (
+                    username_normalized text primary key,
+                    added_at text not null
+                );
                 """
             )
             row = connection.execute("select version from schema_version").fetchone()
@@ -109,16 +113,16 @@ class Store:
                 connection.execute(
                     "insert into schema_version(version) values (?)", (SCHEMA_VERSION,)
                 )
-            elif row["version"] == 1:
-                # v2: Cloudflare Access identifies the account by verified email, and one account
-                # may hold several study profiles (a shared family device).
+            elif row["version"] in (1, 2):
+                # v2 added the (now dormant) email column; v3 adds the invite allowlist, which the
+                # create-table block above already provisioned.
                 columns = {
                     info["name"]
                     for info in connection.execute("pragma table_info(profiles)").fetchall()
                 }
                 if "email" not in columns:
                     connection.execute("alter table profiles add column email text")
-                connection.execute("update schema_version set version = 2")
+                connection.execute("update schema_version set version = 3")
             elif row["version"] != SCHEMA_VERSION:
                 raise RuntimeError(f"Unsupported schema version: {row['version']}")
             # Created after the migration above so a v1 database without the column still upgrades.
@@ -174,19 +178,54 @@ class Store:
         except sqlite3.IntegrityError as error:
             raise ValueError("Profile already exists") from error
 
-    def ensure_profile(self, display_name: str) -> Dict[str, Any]:
-        """Return the profile for this name, creating it the first time it is used.
+    # ---- invite allowlist ---------------------------------------------------------------------
+    # The site is shared with classmates, so a brand-new name only becomes a study profile when it is
+    # on the invite list. Names that already have a profile keep working without being listed.
 
-        The site is shared with classmates, so the name is a study-profile id rather than a
-        credential: typing an unused name creates that profile. The unique username_normalized
-        column stays the duplicate guard (case- and spacing-insensitive), and the random PIN stored
-        here only satisfies the legacy not-null columns -- it is never revealed and plays no part in
-        this sign-in path.
+    def is_allowlisted(self, display_name: str) -> bool:
+        normalized = self.normalize_username(self.normalize_display_name(display_name))
+        with self._connect() as connection:
+            row = connection.execute(
+                "select 1 from allowlist where username_normalized = ?", (normalized,)
+            ).fetchone()
+        return row is not None
+
+    def allowlist_add(self, display_name: str) -> str:
+        normalized = self.normalize_username(self.normalize_display_name(display_name))
+        with self._connect() as connection:
+            connection.execute(
+                "insert or ignore into allowlist (username_normalized, added_at) values (?, ?)",
+                (normalized, self._utc_now().isoformat()),
+            )
+        return normalized
+
+    def allowlist_remove(self, display_name: str) -> bool:
+        normalized = self.normalize_username(self.normalize_display_name(display_name))
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "delete from allowlist where username_normalized = ?", (normalized,)
+            )
+        return cursor.rowcount > 0
+
+    def allowlist_list(self) -> List[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "select username_normalized from allowlist order by username_normalized"
+            ).fetchall()
+        return [row["username_normalized"] for row in rows]
+
+    def login_or_create(self, display_name: str) -> Dict[str, Any]:
+        """Sign in an existing profile, or create one when the name is on the invite list.
+
+        Raises PermissionError when the name is new and not listed, so the route can answer 403
+        instead of silently minting a profile.
         """
         normalized_name = self.normalize_display_name(display_name)
         existing = self.find_profile(normalized_name)
         if existing is not None:
             return {"id": existing["id"], "display_name": existing["display_name"], "created": False}
+        if not self.is_allowlisted(normalized_name):
+            raise PermissionError("This username is not on the invite list")
         try:
             profile_id = self.create_profile(normalized_name, secrets.token_urlsafe(32))
         except ValueError:
@@ -197,72 +236,6 @@ class Store:
             return {"id": existing["id"], "display_name": existing["display_name"], "created": False}
         return {"id": profile_id, "display_name": normalized_name, "created": True}
 
-    # ---- Cloudflare Access identity ------------------------------------------------------------
-    # The edge verifies the mailbox with a one-time PIN and forwards the address; the address is the
-    # account key, and one account can own several study profiles (a shared family device).
-
-    @staticmethod
-    def normalize_email(email: str) -> str:
-        if not isinstance(email, str):
-            raise ValueError("Email must be text")
-        normalized = email.strip().casefold()
-        if not 3 <= len(normalized) <= 254 or "@" not in normalized:
-            raise ValueError("Email is not valid")
-        return normalized
-
-    def profiles_for_email(self, email: str) -> List[Dict[str, Any]]:
-        normalized = self.normalize_email(email)
-        with self._connect() as connection:
-            rows = connection.execute(
-                "select id, display_name from profiles where email = ? order by id",
-                (normalized,),
-            ).fetchall()
-        return [{"id": row["id"], "display_name": row["display_name"]} for row in rows]
-
-    def create_profile_for_email(self, email: str, display_name: str) -> Dict[str, Any]:
-        normalized_email = self.normalize_email(email)
-        name = self.normalize_display_name(display_name)
-        profile_id = self.create_profile(name, secrets.token_urlsafe(32))
-        with self._connect() as connection:
-            connection.execute(
-                "update profiles set email = ? where id = ?", (normalized_email, profile_id)
-            )
-        return {"id": profile_id, "display_name": name}
-
-    def get_profile(self, profile_id: int) -> Optional[Dict[str, Any]]:
-        with self._connect() as connection:
-            row = connection.execute(
-                "select id, display_name, email from profiles where id = ?", (profile_id,)
-            ).fetchone()
-        if row is None:
-            return None
-        return {"id": row["id"], "display_name": row["display_name"], "email": row["email"]}
-
-    def profile_belongs_to(self, profile_id: int, email: str) -> bool:
-        try:
-            normalized = self.normalize_email(email)
-        except ValueError:
-            return False
-        with self._connect() as connection:
-            row = connection.execute(
-                "select 1 from profiles where id = ? and email = ?", (profile_id, normalized)
-            ).fetchone()
-        return row is not None
-
-    def bind_profile_email(self, display_name: str, email: str) -> None:
-        """Attach an existing (pre-Access) profile to a verified mailbox."""
-        normalized_name = self.normalize_display_name(display_name)
-        normalized_email = self.normalize_email(email)
-        with self._connect() as connection:
-            row = connection.execute(
-                "select id from profiles where username_normalized = ?",
-                (self.normalize_username(normalized_name),),
-            ).fetchone()
-            if row is None:
-                raise KeyError(f"No profile named {normalized_name}")
-            connection.execute(
-                "update profiles set email = ? where id = ?", (normalized_email, row["id"])
-            )
 
     def delete_profile(self, display_name: str) -> Dict[str, Any]:
         """Delete a profile and its sessions. Study data is not recoverable without a backup."""

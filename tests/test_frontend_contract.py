@@ -62,44 +62,18 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn('code === "invalid_username"', body)
         self.assertIn("连接失败，请稍后再试。", body)
         # The name is a study-profile id, not a fixed roster: no hard-coded options remain.
+        self.assertIn('code === "not_allowed"', body)
+        self.assertIn("/api/auth/login", self.html)
+        self.assertNotIn("api/whoami", self.html)
+        self.assertNotIn("/api/profiles", self.html)
         self.assertNotIn("<select id=\"profileNameInput\"", self.html)
         for name in ("Owner", "Sabrina", "Max"):
             self.assertNotIn(f'<option value="{name}"', self.html)
-
-    def test_verified_email_identity_selects_a_profile_without_retyping(self):
-        # Cloudflare Access verifies the mailbox; the page then offers the profiles of that account.
-        self.assertIn('fetch("/api/whoami"', self.html)
-        self.assertIn('apiRequest("/api/profiles"', self.html)
-        self.assertIn("body: { profile_id: Number(profileId) }", self.function_body("signInWithProfile"))
-        self.assertIn("identityProfiles", self.function_body("renderProfileDialog"))
-        self.assertIn("/cdn-cgi/access/logout", self.html)
-        # A remembered profile is only reused when it belongs to the current account.
-        init = self.function_body("initializeApp")
-        self.assertIn("await refreshIdentity()", init)
-        self.assertIn("identityProfiles.find", init)
 
     def test_hidden_wins_over_layout_display(self):
         # Regression: .profile-field { display: grid } outranked the UA [hidden] rule, so the name
         # field stayed visible next to the profile buttons and the dialog showed two flows at once.
         self.assertRegex(self.html, r"\[hidden\]\s*\{[^}]*display:\s*none\s*!important")
-
-    def test_profile_picker_offers_only_the_picker(self):
-        body = self.function_body("renderProfileDialog")
-        self.assertIn("profileNameField.hidden = choosing", body)
-        self.assertIn("profileSubmit.hidden = choosing", body)
-        self.assertIn("creatingProfile", body)
-        # Adding a profile belongs in the signed-in bar, not in the chooser.
-        self.assertNotIn("再建一个学习档案", body)
-        self.assertIn('id="newProfile"', self.html)
-        self.assertIn("openCreateProfileDialog", self.html)
-
-    def test_returning_visitor_enters_without_a_picker(self):
-        init = self.function_body("initializeApp")
-        self.assertIn("await refreshIdentity()", init)
-        self.assertIn("identityProfiles.length === 1", init)
-        self.assertIn("await signInWithProfile(target.id)", init)
-        # The picker is the fallback, not the first screen.
-        self.assertLess(init.index("await signInWithProfile(target.id)"), init.index("showLoginDialog()"))
 
     def test_login_dialog_is_viewport_bounded(self):
         dialog_rule = re.search(r"\.profile-dialog\s*\{(.*?)\}", self.html, re.DOTALL)

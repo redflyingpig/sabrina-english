@@ -93,6 +93,24 @@ def list_allowlist(data_dir: Path, output: TextIO = sys.stdout) -> None:
         output.write(f"- {name}\n")
 
 
+def sync_allowlist(data_dir: Path, output: TextIO = sys.stdout) -> None:
+    """Copy the iCloud note into the local fallback (run from a shell that can read iCloud)."""
+    if not allowlist.ICLOUD_PATH.exists():
+        output.write(f"iCloud 名单不存在：{allowlist.ICLOUD_PATH}\n")
+        return
+    try:
+        text = allowlist.ICLOUD_PATH.read_text(encoding="utf-8")
+    except OSError as error:
+        output.write(f"读取 iCloud 名单失败：{error}\n请给运行服务的 Python 授予「完全磁盘访问」。\n")
+        return
+    names = allowlist.parse(text)
+    allowlist._write(allowlist.LOCAL_PATH, names)
+    output.write(
+        f"已同步 {len(names)} 个名字到本机兜底文件\n"
+        f"  源：{allowlist.ICLOUD_PATH}\n  目标：{allowlist.LOCAL_PATH}\n"
+    )
+
+
 def rename_profile(data_dir: Path, username: str, new_name: str, output: TextIO = sys.stdout) -> None:
     store = _store(data_dir)
     renamed = store.rename_profile(username, new_name)
@@ -119,6 +137,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     subparsers.add_parser("list-profiles")
     allow_parser = subparsers.add_parser("allow")
     allow_parser.add_argument("username")
+    subparsers.add_parser("sync-allowlist")
     unallow_parser = subparsers.add_parser("unallow")
     unallow_parser.add_argument("username")
     subparsers.add_parser("list-allowlist")
@@ -137,6 +156,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
     if args.command == "allow":
         allow_name(args.data_dir, args.username)
+        return 0
+    if args.command == "sync-allowlist":
+        sync_allowlist(args.data_dir)
         return 0
     if args.command == "unallow":
         disallow_name(args.data_dir, args.username)

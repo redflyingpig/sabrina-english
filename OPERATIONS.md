@@ -35,13 +35,13 @@ install -m 600 course.json "$HOME/Library/Application Support/SabrinaEnglish/can
 
 每个名字对应一个学习档案。删除档案不会连带删除邀请名单里的名字。
 
-**邀请名单是一个 Obsidian 笔记**（可以直接在手机或电脑的 Obsidian 里改）：
+**邀请名单是一个 Obsidian 笔记**，放在 iCloud 的 Obsidian 目录里，因此会同步到其他设备，也会出现在 Obsidian 的 vault 选择器中：
 
 ```
-~/Sabrina Config/allowlist.md
+~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Sabrina Config/allowlist.md
 ```
 
-Vault 名 `Sabrina Config`（直接放在家目录），里面只有这一个配置文件。**不要放到 iCloud Drive 或「文档」目录**：系统权限会拒绝后台服务读取（`Operation not permitted`），名单会变成空的。想同步到手机的话，可以在 Obsidian 里用同步插件或手动拷贝，而不是挪动这个文件夹。每行一个名字，`- 名字` 或裸名字都可以；`#` 开头是标题、`>` 开头是引用，都会被忽略。服务在**每次登录时重新读取**这个文件，所以改完立即生效，不需要重启。
+Vault 名 `Sabrina Config`。每行一个名字，`- 名字` 或裸名字都可以；`#` 标题、`>` 引用会被忽略。服务在**每次登录时重新读取**。
 
 ```markdown
 # 允许登录的名字
@@ -52,17 +52,31 @@ Vault 名 `Sabrina Config`（直接放在家目录），里面只有这一个配
 - 同学的名字
 ```
 
-也可以用命令维护同一份文件：
+**iCloud 需要一次授权**：macOS 不允许后台服务读取 iCloud Drive，日志里会看到
+`Operation not permitted`。给运行服务的 Python 授予「完全磁盘访问」后即可自动读取：
+
+1. 系统设置 → 隐私与安全性 → 完全磁盘访问
+2. 点 `+`，按 `⌘⇧G` 粘贴
+   `/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app`
+3. 打开开关，然后 `./deploy/install.sh` 重启服务
+
+未授权时服务会自动退回到本机兜底文件 `~/Sabrina Config/allowlist.md`（vault 之外的普通目录），网站不会因此不可用，但 Obsidian 里的改动不会生效。此时可以在终端（能读 iCloud 的上下文）手动同步：
+
+```sh
+python3 -m sabrina_backend.admin sync-allowlist
+```
+
+也可以用命令维护名单（写入 iCloud，失败时回退本机文件）：
 
 ```sh
 export SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish"
-python3 -m sabrina_backend.admin allow <名字>          # 写入名单
-python3 -m sabrina_backend.admin unallow <名字>        # 移出名单（已建的档案不受影响）
-python3 -m sabrina_backend.admin list-allowlist        # 查看当前名单与文件路径
-python3 -m sabrina_backend.admin list-profiles         # 查看已有档案
+python3 -m sabrina_backend.admin allow <名字>
+python3 -m sabrina_backend.admin unallow <名字>
+python3 -m sabrina_backend.admin list-allowlist
+python3 -m sabrina_backend.admin list-profiles
 ```
 
-文件名可以用环境变量 `SABRINA_ALLOWLIST` 指到别处；默认就是上面那个 vault。文件被 iCloud 收回或暂时读不到时，视为空名单——已有档案的人照样能登录，只是新名字会被拒绝。
+文件名可用环境变量 `SABRINA_ALLOWLIST` 覆盖。
 
 **其他档案操作**：
 

@@ -21,10 +21,19 @@ from typing import Iterable, List
 
 VAULT_NAME = "Sabrina Config"
 ALLOWLIST_FILENAME = "allowlist.md"
-# Deliberately NOT inside iCloud Drive or Documents: the LaunchAgent cannot read those without
-# Full Disk Access (TCC returns "Operation not permitted"), so the note lives at the home root where
-# the service can read it and Obsidian can still open it as a vault.
-DEFAULT_PATH = Path.home() / VAULT_NAME / ALLOWLIST_FILENAME
+
+# Primary: the iCloud Obsidian vault, so the note syncs to other devices and shows up in Obsidian's
+# vault switcher. macOS protects iCloud Drive, so the LaunchAgent can only read it after Full Disk
+# Access is granted; until then the service falls back to the local vault below.
+ICLOUD_PATH = (
+    Path.home()
+    / "Library/Mobile Documents/iCloud~md~obsidian/Documents"
+    / VAULT_NAME
+    / ALLOWLIST_FILENAME
+)
+# Fallback: a plain folder at the home root, always readable by the service.
+LOCAL_PATH = Path.home() / VAULT_NAME / ALLOWLIST_FILENAME
+DEFAULT_PATH = ICLOUD_PATH
 
 HEADER = (
     "# 允许登录的名字\n\n"
@@ -34,9 +43,13 @@ HEADER = (
 )
 
 
+def configured_path():
+    value = os.environ.get("SABRINA_ALLOWLIST")
+    return Path(value).expanduser() if value else None
+
+
 def path() -> Path:
-    configured = os.environ.get("SABRINA_ALLOWLIST")
-    return Path(configured).expanduser() if configured else DEFAULT_PATH
+    return configured_path() or DEFAULT_PATH
 
 
 def normalize_name(value: str) -> str:
@@ -61,17 +74,26 @@ def parse(text: str) -> List[str]:
     return names
 
 
+def candidates() -> List[Path]:
+    configured = configured_path()
+    return [configured] if configured else [ICLOUD_PATH, LOCAL_PATH]
+
+
 def read_names(target: Path = None) -> List[str]:
-    target = target or path()
-    try:
-        return parse(target.read_text(encoding="utf-8"))
-    except OSError as error:
-        # An unreadable note (permissions, iCloud eviction) means "nobody new is invited"; log it so
-        # the failure is visible instead of silently rejecting every new name.
-        logging.getLogger("sabrina.allowlist").warning(
-            "cannot read invite list %s: %s", target, error
-        )
-        return []
+    """Read the first existing note; fall back to the local vault when iCloud is unreadable."""
+    paths = [target] if target else candidates()
+    for candidate in paths:
+        if not candidate.exists():
+            continue
+        try:
+            return parse(candidate.read_text(encoding="utf-8"))
+        except OSError as error:
+            # iCloud Drive is TCC-protected: a launchd process gets "Operation not permitted" unless
+            # the interpreter has Full Disk Access. Log it and try the local fallback.
+            logging.getLogger("sabrina.allowlist").warning(
+                "cannot read invite list %s: %s", candidate, error
+            )
+    return []
 
 
 def _write(target: Path, names: Iterable[str]) -> None:
@@ -92,8 +114,23 @@ def _write(target: Path, names: Iterable[str]) -> None:
         raise
 
 
+def writable_path() -> Path:
+    """Prefer the synced iCloud note; fall back to the local vault when it is not writable."""
+    configured = configured_path()
+    if configured:
+        return configured
+    try:
+        ICLOUD_PATH.parent.mkdir(parents=True, exist_ok=True)
+        return ICLOUD_PATH
+    except OSError as error:
+        logging.getLogger("sabrina.allowlist").warning(
+            "cannot write to %s (%s); using %s", ICLOUD_PATH, error, LOCAL_PATH
+        )
+        return LOCAL_PATH
+
+
 def add(name: str, target: Path = None) -> str:
-    target = target or path()
+    target = target or writable_path()
     normalized = normalize_name(name)
     names = read_names(target)
     if normalized not in names:
@@ -103,7 +140,7 @@ def add(name: str, target: Path = None) -> str:
 
 
 def remove(name: str, target: Path = None) -> bool:
-    target = target or path()
+    target = target or writable_path()
     normalized = normalize_name(name)
     names = read_names(target)
     if normalized not in names:

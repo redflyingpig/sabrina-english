@@ -52,32 +52,25 @@ Vault 名 `Sabrina Config`。每行一个名字，`- 名字` 或裸名字都可�
 - 同学的名字
 ```
 
-**iCloud 的读取方式**：macOS 不允许后台服务直接读 iCloud Drive（日志里的
-`Operation not permitted`）。服务在直读失败时会自动改用 **node** 读同一个文件——本机的 node
-已在「完全磁盘访问」名单里，因此 Obsidian 里改完保存即可生效，不需要手动同步。
+**iCloud 的读取方式**：服务由 **Homebrew 的 Python 3.14** 运行（`deploy/install.sh` 自动优先选它），
+该解释器在「完全磁盘访问」名单里，因此可以**直接读** iCloud 上的名单文件。日志里不应再出现
+`cannot read invite list …`。
 
-如果以后给运行服务的 Python 也授予了完全磁盘访问，会直接读、不再走 node。两者都不可用时，
-服务退回本机兜底文件 `~/Sabrina Config/allowlist.md`（vault 之外的普通目录），此时可以在终端
-手动同步：
+CLT 自带的 `/usr/bin/python3` 即使授权也读不到（它只是壳，最终 exec 到未授权的 Python.app），
+所以安装脚本不再默认用它。服务内的读取顺序是：
+
+1. 直接读 iCloud 文件（当前实际路径）
+2. 直读被拒时，改用 **node** 读同一文件（node 也在授权名单里）
+3. 都失败时，退回本机兜底文件 `~/Sabrina Config/allowlist.md`
+
+更换 Python 版本（例如 Homebrew 升级到 3.15）后需要在新解释器上重新授予完全磁盘访问；
+`deploy/install.sh` 会在 `python3.14`、`python3`、系统 Python 之间自动挑选已存在的那个。
+
+手动同步（仅在两个兜底都失效时使用）：
 
 ```sh
 python3 -m sabrina_backend.admin sync-allowlist
 ```
-
-依赖：兜底读取需要 `node`（Homebrew 安装的 `/opt/homebrew/bin/node`）。删除 node 会让 iCloud
-读取失效，退回本机兜底文件。
-
-也可以用命令维护名单（写入 iCloud，失败时回退本机文件）：
-
-```sh
-export SABRINA_DATA_DIR="$HOME/Library/Application Support/SabrinaEnglish"
-python3 -m sabrina_backend.admin allow <名字>
-python3 -m sabrina_backend.admin unallow <名字>
-python3 -m sabrina_backend.admin list-allowlist
-python3 -m sabrina_backend.admin list-profiles
-```
-
-文件名可用环境变量 `SABRINA_ALLOWLIST` 覆盖。
 
 **其他档案操作**：
 

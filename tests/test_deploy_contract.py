@@ -2,6 +2,7 @@ import os
 import plistlib
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -23,6 +24,8 @@ class DeployContractTest(unittest.TestCase):
             "SABRINA_DATA_DIR": str(self.data_dir),
             "SABRINA_LAUNCH_AGENTS_DIR": str(self.agents_dir),
             "SABRINA_SKIP_LAUNCHCTL": "1",
+            # Pin the interpreter so the assertion does not depend on what is installed.
+            "SABRINA_PYTHON_BIN": sys.executable,
         }
 
     def tearDown(self):
@@ -47,10 +50,24 @@ class DeployContractTest(unittest.TestCase):
         service = self.plist("ai.sabrina-english.site.plist")
 
         arguments = service["ProgramArguments"]
-        self.assertEqual("/usr/bin/python3", arguments[0])
+        self.assertEqual(sys.executable, arguments[0])
         self.assertIn("sabrina_backend.app", arguments)
         self.assertEqual("127.0.0.1", arguments[arguments.index("--host") + 1])
         self.assertEqual("18880", arguments[arguments.index("--port") + 1])
+
+    def test_default_interpreter_prefers_an_installed_python(self):
+        environment = dict(self.environment)
+        environment.pop("SABRINA_PYTHON_BIN", None)
+        subprocess.run(
+            [str(DEPLOY / "install.sh")], cwd=ROOT, env=environment,
+            text=True, capture_output=True, check=True,
+        )
+        interpreter = self.plist("ai.sabrina-english.site.plist")["ProgramArguments"][0]
+        # On this Mac the Homebrew interpreter is preferred because it holds Full Disk Access; any
+        # absolute, executable interpreter is acceptable elsewhere.
+        self.assertTrue(os.path.isabs(interpreter), interpreter)
+        self.assertTrue(os.access(interpreter, os.X_OK), interpreter)
+        self.assertIn("python", Path(interpreter).name, interpreter)
 
     def test_launchagents_use_absolute_paths_and_keepalive(self):
         self.install()

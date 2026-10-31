@@ -5,7 +5,19 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PROJECT_DIR=${SABRINA_PROJECT_DIR:-$(dirname "$SCRIPT_DIR")}
 DATA_DIR=${SABRINA_DATA_DIR:-"$HOME/Library/Application Support/SabrinaEnglish"}
 LAUNCH_AGENTS_DIR=${SABRINA_LAUNCH_AGENTS_DIR:-"$HOME/Library/LaunchAgents"}
-PYTHON_BIN=${SABRINA_PYTHON_BIN:-/usr/bin/python3}
+# Prefer the Homebrew interpreter: it is the one granted Full Disk Access on this Mac, which lets
+# the service read the iCloud invite note directly. Fall back to the system Python elsewhere.
+if [ -z "${SABRINA_PYTHON_BIN:-}" ]; then
+  if [ -x /opt/homebrew/bin/python3.14 ]; then
+    PYTHON_BIN=/opt/homebrew/bin/python3.14
+  elif [ -x /opt/homebrew/bin/python3 ]; then
+    PYTHON_BIN=/opt/homebrew/bin/python3
+  else
+    PYTHON_BIN=/usr/bin/python3
+  fi
+else
+  PYTHON_BIN=$SABRINA_PYTHON_BIN
+fi
 SERVICE_PLIST="$LAUNCH_AGENTS_DIR/ai.sabrina-english.site.plist"
 BACKUP_PLIST="$LAUNCH_AGENTS_DIR/ai.sabrina-english.backup.plist"
 DOMAIN_TARGET="gui/$(id -u)"

@@ -282,7 +282,7 @@ class SabrinaHandler(BaseHTTPRequestHandler):
 
     def _health(self) -> None:
         try:
-            with self.server.store._connect() as connection:
+            with self.server.store._db() as connection:
                 connection.execute("select 1").fetchone()
         except sqlite3.Error:
             self._send_json(503, {"status": "error", "database": "error"})

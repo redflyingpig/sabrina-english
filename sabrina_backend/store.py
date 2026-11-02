@@ -8,6 +8,7 @@ import json
 import os
 import secrets
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
@@ -63,13 +64,28 @@ class Store:
         connection.execute("pragma busy_timeout = 5000")
         return connection
 
+    @contextmanager
+    def _db(self):
+        """Open a connection, commit on success, and always close it.
+
+        Using the connection object as a context manager only wraps a transaction; it does not close
+        the handle. Leaked handles eventually exhaust the process file-descriptor limit, after which
+        every sqlite3.connect() fails with "unable to open database file".
+        """
+        connection = self._connect()
+        try:
+            yield connection
+            connection.commit()
+        finally:
+            connection.close()
+
     def initialize(self) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         try:
             os.chmod(self.db_path.parent, 0o700)
         except OSError:
             pass
-        with self._connect() as connection:
+        with self._db() as connection:
             connection.execute("pragma journal_mode = wal")
             connection.executescript(
                 """
@@ -156,7 +172,7 @@ class Store:
         now = self._utc_now().isoformat()
         state = json.dumps(EMPTY_STATE, separators=(",", ":"), ensure_ascii=False)
         try:
-            with self._connect() as connection:
+            with self._db() as connection:
                 cursor = connection.execute(
                     """
                     insert into profiles (
@@ -207,7 +223,7 @@ class Store:
     def delete_profile(self, display_name: str) -> Dict[str, Any]:
         """Delete a profile and its sessions. Study data is not recoverable without a backup."""
         normalized = self.normalize_username(self.normalize_display_name(display_name))
-        with self._connect() as connection:
+        with self._db() as connection:
             row = connection.execute(
                 "select id, display_name, email from profiles where username_normalized = ?",
                 (normalized,),
@@ -231,7 +247,7 @@ class Store:
         new_name = self.normalize_display_name(new_display_name)
         new_username = self.normalize_username(new_name)
         now = self._utc_now().isoformat()
-        with self._connect() as connection:
+        with self._db() as connection:
             row = connection.execute(
                 "select id from profiles where username_normalized = ?", (normalized,)
             ).fetchone()
@@ -253,7 +269,7 @@ class Store:
             self.validate_pin(pin)
         except ValueError:
             return None
-        with self._connect() as connection:
+        with self._db() as connection:
             row = connection.execute(
                 "select id, display_name, pin_salt, pin_hash from profiles "
                 "where username_normalized = ?",
@@ -271,7 +287,7 @@ class Store:
             normalized = self.normalize_username(username)
         except ValueError:
             return None
-        with self._connect() as connection:
+        with self._db() as connection:
             row = connection.execute(
                 "select id, display_name from profiles where username_normalized = ?",
                 (normalized,),
@@ -285,7 +301,7 @@ class Store:
         self.validate_pin(pin)
         salt = secrets.token_bytes(16)
         now = self._utc_now().isoformat()
-        with self._connect() as connection:
+        with self._db() as connection:
             row = connection.execute(
                 "select id, display_name from profiles where username_normalized = ?",
                 (normalized,),
@@ -302,7 +318,7 @@ class Store:
         return str(row["display_name"])
 
     def list_profiles(self):
-        with self._connect() as connection:
+        with self._db() as connection:
             rows = connection.execute(
                 "select display_name, email, created_at, updated_at from profiles order by id"
             ).fetchall()
@@ -320,7 +336,7 @@ class Store:
         token = secrets.token_urlsafe(32)
         created = self._utc_now()
         expires = created + timedelta(days=SESSION_DAYS)
-        with self._connect() as connection:
+        with self._db() as connection:
             connection.execute(
                 "insert into sessions(token_hash, profile_id, created_at, expires_at) "
                 "values (?, ?, ?, ?)",
@@ -338,7 +354,7 @@ class Store:
             return None
         now = self._utc_now().isoformat()
         token_hash = self._token_hash(token)
-        with self._connect() as connection:
+        with self._db() as connection:
             connection.execute("delete from sessions where expires_at <= ?", (now,))
             row = connection.execute(
                 """
@@ -356,13 +372,13 @@ class Store:
     def delete_session(self, token: str) -> None:
         if not isinstance(token, str) or not token:
             return
-        with self._connect() as connection:
+        with self._db() as connection:
             connection.execute(
                 "delete from sessions where token_hash = ?", (self._token_hash(token),)
             )
 
     def read_state(self, profile_id: int) -> Dict[str, Any]:
-        with self._connect() as connection:
+        with self._db() as connection:
             row = connection.execute(
                 "select display_name, state_json, state_version from profiles where id = ?",
                 (profile_id,),
@@ -384,7 +400,7 @@ class Store:
             raise ValueError("State must be an object")
         serialized = json.dumps(state, separators=(",", ":"), ensure_ascii=False)
         now = self._utc_now().isoformat()
-        with self._connect() as connection:
+        with self._db() as connection:
             cursor = connection.execute(
                 """
                 update profiles

@@ -1,4 +1,5 @@
 import hashlib
+import os
 import json
 import sqlite3
 import tempfile
@@ -137,6 +138,25 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(["Owner"], [item["key"] for item in states["Owner"]["history"]])
         self.assertEqual(["Sabrina"], [item["key"] for item in states["Sabrina"]["history"]])
         self.assertEqual(["Max"], [item["key"] for item in states["Max"]["history"]])
+
+
+    def test_repeated_reads_do_not_leak_file_descriptors(self):
+        # Regression: `with connection` commits but never closes, so fd exhaustion eventually made
+        # every sqlite3.connect() fail with "unable to open database file".
+        if not os.path.isdir("/dev/fd"):
+            self.skipTest("no /dev/fd on this platform")
+        self.store.create_profile("Owner", "123456")
+
+        def open_fds():
+            return len(os.listdir("/dev/fd"))
+
+        baseline = open_fds()
+        for _ in range(120):
+            self.store.find_profile("Owner")
+            self.store.list_profiles()
+            self.store.resolve_session("no-such-token")
+        growth = open_fds() - baseline
+        self.assertLess(growth, 10, f"descriptor growth {growth} suggests leaked connections")
 
 
 if __name__ == "__main__":

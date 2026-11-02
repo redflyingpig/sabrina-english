@@ -89,7 +89,7 @@ class FrontendContractTest(unittest.TestCase):
     def test_login_dialog_is_viewport_bounded(self):
         dialog_rule = re.search(r"\.profile-dialog\s*\{(.*?)\}", self.html, re.DOTALL)
         self.assertIsNotNone(dialog_rule)
-        self.assertIn("width: 500px", dialog_rule.group(1))
+        self.assertIn("width: 420px", dialog_rule.group(1))
         self.assertIn("max-width: calc(100vw - 28px)", dialog_rule.group(1))
         field_rule = re.search(r"\.profile-field\s*\{(.*?)\}", self.html, re.DOTALL)
         self.assertIn("min-width: 0", field_rule.group(1))

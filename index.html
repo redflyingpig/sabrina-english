@@ -687,7 +687,7 @@
     }
 
     .profile-dialog {
-      width: 500px;
+      width: 420px;
       max-width: calc(100vw - 28px);
       overflow: hidden;
       padding: 0;
@@ -855,6 +855,99 @@
         grid-template-columns: 1fr;
       }
     }
+  
+    /* ---------- 密度与字重（2026-11 UI pass） ----------
+       目标：一屏放下更多内容、字重更轻。这里统一覆盖上面各处的原始值，
+       保持单块可读；如需回退，删掉本块即可恢复原样。 */
+    :root {
+      --radius: 14px;
+      --shadow: 0 12px 30px rgba(125, 80, 40, 0.10);
+      --soft-shadow: 0 6px 18px rgba(125, 80, 40, 0.06);
+    }
+
+    body {
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    .page { width: min(1180px, 100%); padding: 12px 14px 28px; }
+    .shell { gap: 10px; }
+    .hero { padding: 4px 2px 0; gap: 10px; align-items: center; }
+    .eyebrow { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.14em; margin-bottom: 4px; }
+    h1 { font-size: clamp(1.45rem, 2.1vw, 1.85rem); font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
+    .subtitle { margin-top: 3px; font-size: 0.84rem; line-height: 1.45; }
+
+    .date-card { min-width: 132px; padding: 9px 12px; border-radius: 10px; }
+    .date-card span { font-size: 0.58rem; font-weight: 600; }
+    .date-card strong { margin-top: 3px; font-size: 0.84rem; font-weight: 600; }
+    .hero-stats { gap: 6px; margin-top: 8px; }
+    .hero-stats > div { padding: 6px 8px; border-radius: 8px; }
+
+    .section-head { padding: 10px 12px 7px; gap: 8px; }
+    .badge { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 8px; font-size: 0.74rem; font-weight: 600; }
+    h2 { font-size: clamp(0.98rem, 1.5vw, 1.14rem); font-weight: 600; }
+    .mode-name { font-size: 0.74rem; font-weight: 600; }
+
+    .progress-wrap { padding: 8px 12px 5px; }
+    .progress-copy { font-size: 0.76rem; }
+    .progress-copy strong { font-size: 0.9rem; font-weight: 600; }
+    .progress-track { height: 4px; }
+    .lesson-source { margin: 0 12px; font-size: 0.7rem; }
+
+    .lesson-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      padding: 10px 12px 12px;
+    }
+    .lesson-card { padding: 10px 12px; gap: 6px; border-radius: 10px; box-shadow: 0 8px 20px rgba(125, 80, 40, 0.07); }
+    .lesson-card::before { width: 3px; }
+    .item-main { font-size: 0.98rem; font-weight: 600; letter-spacing: -0.005em; line-height: 1.25; }
+    .phonetic { margin-top: 2px; font-size: 0.72rem; font-weight: 600; color: #5f93ad; }
+    .translation, .usage { font-size: 0.8rem; font-weight: 600; color: #a2601f; line-height: 1.45; }
+    .example, .example-list li { font-size: 0.7rem; line-height: 1.45; }
+    .actions { gap: 6px; }
+
+    .icon-btn, .learn-btn, .clear-btn, .secondary-btn, .primary-btn {
+      min-height: 28px; border-radius: 8px; font-size: 0.74rem; font-weight: 600;
+    }
+    .icon-btn { width: 28px; flex: 0 0 28px; font-size: 0.82rem; }
+    .learn-btn, .clear-btn, .secondary-btn, .primary-btn { padding: 0 9px; }
+
+    .app-switch a { font-size: 0.76rem; padding: 5px 9px; }
+    .profile-form { gap: 13px; padding: 22px; }
+    .profile-form h2 { font-size: 1.1rem; }
+    .profile-form p { font-size: 0.86rem; }
+    .profile-note { font-size: 0.8rem; padding: 9px 11px; }
+    .profile-field label { font-size: 0.8rem; font-weight: 600; }
+    .profile-field input { min-height: 40px; font-size: 0.92rem; }
+
+    @media (max-width: 1100px) {
+      .lesson-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 860px) {
+      .page { padding: 12px 12px 28px; }
+      .hero { padding: 4px 0 0; gap: 8px; }
+      h1 { font-size: 1.3rem; }
+      .subtitle { font-size: 0.8rem; }
+      .date-card { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 10px; }
+      .date-card > span { display: none; }
+      .date-card > strong { margin: 0; font-size: 0.8rem; white-space: nowrap; }
+      .hero-stats { display: flex; gap: 10px; margin: 0; grid-template-columns: none; }
+      .hero-stats > div { padding: 0; border: 0; background: none; }
+      .hero-stats .stat-card span { font-size: 0.54rem; letter-spacing: 0.04em; }
+      .hero-stats .stat-card strong { margin-top: 1px; font-size: 0.74rem; }
+      .lesson-source { font-size: 0.64rem; line-height: 1.5; }
+    }
+
+    @media (max-width: 760px) {
+      .lesson-grid { grid-template-columns: 1fr; gap: 6px; padding: 8px 10px 12px; }
+      .lesson-card { padding: 9px 11px; gap: 5px; }
+      .shell { gap: 8px; }
+    }
+
   </style>
   <link rel="stylesheet" href="/assets/wordbook.css">
 </head>

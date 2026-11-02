@@ -876,7 +876,7 @@
     .shell { gap: 10px; }
     .hero { padding: 4px 2px 0; gap: 10px; align-items: center; }
     .eyebrow { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.14em; margin-bottom: 4px; }
-    h1 { font-size: clamp(1.45rem, 2.1vw, 1.85rem); font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
+    h1 { font-size: clamp(1.55rem, 2.2vw, 2rem); font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
     .subtitle { margin-top: 3px; font-size: 0.84rem; line-height: 1.45; }
 
     .date-card { min-width: 132px; padding: 9px 12px; border-radius: 10px; }
@@ -887,7 +887,7 @@
 
     .section-head { padding: 10px 12px 7px; gap: 8px; }
     .badge { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 8px; font-size: 0.74rem; font-weight: 600; }
-    h2 { font-size: clamp(0.98rem, 1.5vw, 1.14rem); font-weight: 600; }
+    h2 { font-size: clamp(1.04rem, 1.6vw, 1.2rem); font-weight: 600; }
     .mode-name { font-size: 0.74rem; font-weight: 600; }
 
     .progress-wrap { padding: 8px 12px 5px; }
@@ -901,18 +901,18 @@
       gap: 8px;
       padding: 10px 12px 12px;
     }
-    .lesson-card { padding: 10px 12px; gap: 6px; border-radius: 10px; box-shadow: 0 8px 20px rgba(125, 80, 40, 0.07); }
+    .lesson-card { padding: 11px 13px; gap: 6px; border-radius: 10px; box-shadow: 0 8px 20px rgba(125, 80, 40, 0.07); }
     .lesson-card::before { width: 3px; }
-    .item-main { font-size: 0.98rem; font-weight: 600; letter-spacing: -0.005em; line-height: 1.25; }
-    .phonetic { margin-top: 2px; font-size: 0.72rem; font-weight: 600; color: #5f93ad; }
-    .translation, .usage { font-size: 0.8rem; font-weight: 600; color: #a2601f; line-height: 1.45; }
-    .example, .example-list li { font-size: 0.7rem; line-height: 1.45; }
+    .item-main { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.005em; line-height: 1.25; }
+    .phonetic { margin-top: 3px; font-size: 0.82rem; font-weight: 600; color: #5f93ad; }
+    .translation, .usage { font-size: 0.94rem; font-weight: 600; color: #a2601f; line-height: 1.45; }
+    .example, .example-list li { font-size: 0.82rem; line-height: 1.45; }
     .actions { gap: 6px; }
 
     .icon-btn, .learn-btn, .clear-btn, .secondary-btn, .primary-btn {
-      min-height: 28px; border-radius: 8px; font-size: 0.74rem; font-weight: 600;
+      min-height: 30px; border-radius: 8px; font-size: 0.78rem; font-weight: 600;
     }
-    .icon-btn { width: 28px; flex: 0 0 28px; font-size: 0.82rem; }
+    .icon-btn { width: 30px; flex: 0 0 30px; font-size: 0.86rem; }
     .learn-btn, .clear-btn, .secondary-btn, .primary-btn { padding: 0 9px; }
 
     .app-switch a { font-size: 0.76rem; padding: 5px 9px; }
@@ -943,8 +943,11 @@
     }
 
     @media (max-width: 760px) {
+      .item-main { font-size: 1.25rem; }
+      .translation, .usage { font-size: 0.98rem; }
+      .example, .example-list li { font-size: 0.84rem; }
       .lesson-grid { grid-template-columns: 1fr; gap: 6px; padding: 8px 10px 12px; }
-      .lesson-card { padding: 9px 11px; gap: 5px; }
+      .lesson-card { padding: 10px 12px; gap: 5px; }
       .shell { gap: 8px; }
     }
 
